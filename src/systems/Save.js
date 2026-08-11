@@ -12,7 +12,7 @@
  *    crash during a write can only ever destroy the newer of two copies.
  */
 
-import { PLAYER } from '../data/Balance.js';
+import { PLAYER, PROGRESSION } from '../data/Balance.js';
 
 const KEY = 'elemental-ascension/profile';
 const BAK = 'elemental-ascension/profile.bak';
@@ -220,6 +220,13 @@ function sanitise(p) {
   };
   p.level = Math.floor(num(p.level, 1, PLAYER.MAX_LEVEL, 1));
   p.xp = Math.floor(num(p.xp, 0, Number.MAX_SAFE_INTEGER, 0));
+
+  // Reconcile level against XP. A save edited by hand, or one written by an
+  // older curve, can hold more XP than its level accounts for; without this the
+  // player sits on an over-full XP bar that never resolves.
+  while (p.level < PLAYER.MAX_LEVEL && p.xp >= PROGRESSION.xpForLevel(p.level + 1)) {
+    p.level++;
+  }
   p.skillPoints = Math.floor(num(p.skillPoints, 0, 9999, 0));
   p.ember = Math.floor(num(p.ember, 0, Number.MAX_SAFE_INTEGER, 0));
   p.shards = Math.floor(num(p.shards, 0, Number.MAX_SAFE_INTEGER, 0));
