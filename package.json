@@ -1,0 +1,13 @@
+{
+  "name": "elemental-ascension",
+  "version": "1.0.0",
+  "description": "A 2D side-view action RPG built with Phaser 3. Fire chapter: 20 stages, bosses, loot, skill tree. Desktop, gamepad and mobile landscape.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes http-server -p 8080 -c-1 .",
+    "serve": "python3 -m http.server 8080"
+  },
+  "keywords": ["game", "phaser", "action-rpg", "html5", "mobile"],
+  "license": "MIT"
+}

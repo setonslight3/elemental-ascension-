@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Elemental Ascension</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0b0710" />
+<meta name="description" content="Elemental Ascension — a 2D side-view action RPG. Fire element, 20 stages, bosses, loot and a skill tree. Plays on desktop and mobile in landscape." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🔥</text></svg>" />
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="game"></div>
+
+  <!-- Shown by CSS whenever the viewport is taller than it is wide. -->
+  <div id="rotate-gate" aria-hidden="true">
+    <div class="rotate-inner">
+      <div class="phone"><div class="phone-screen"></div></div>
+      <h1>Rotate your device</h1>
+      <p>Elemental Ascension is played in landscape.</p>
+    </div>
+  </div>
+
+  <div id="boot-splash">
+    <div class="boot-flame"></div>
+    <div class="boot-title">ELEMENTAL ASCENSION</div>
+    <div class="boot-sub">loading&hellip;</div>
+  </div>
+
+  <noscript>
+    <div class="noscript">Elemental Ascension needs JavaScript enabled to run.</div>
+  </noscript>
+
+  <script src="./vendor/phaser.min.js"></script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
