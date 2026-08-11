@@ -1,0 +1,5 @@
+# Docs are for the repo, not the deployment. Everything else at the root
+# (index.html, styles.css, src/, vendor/) is the game and must ship.
+README.md
+DESIGN.md
+.gitignore

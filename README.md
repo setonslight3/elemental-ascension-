@@ -38,6 +38,49 @@ portrait. Controls, their size, their opacity and left/right handedness are all 
 
 ---
 
+## Deploying
+
+The game is a static site with no build step, so it drops onto any static host.
+`vercel.json` is included and the repo deploys to Vercel as-is.
+
+**From the dashboard:** import the repository. Leave every build setting at its
+default — `vercel.json` sets `framework: null` and `outputDirectory: "."`, so
+Vercel skips the build entirely and serves the repo root.
+
+**From the CLI:**
+
+```bash
+npm i -g vercel
+vercel          # preview deployment
+vercel --prod   # production
+```
+
+What the config does:
+
+- **No build.** There is nothing to compile. `package.json` has no `build`
+  script, so Vercel copies the files and stops.
+- **`.vercelignore`** keeps `README.md` and `DESIGN.md` out of the deployment —
+  the docs belong to the repo, not the site.
+- **Caching split by change rate.** `vendor/phaser.min.js` is pinned and large,
+  so it caches for a day and revalidates in the background. `index.html`,
+  `styles.css` and everything under `src/` revalidate on every load; Vercel's
+  ETags turn that into a 304 for unchanged files, so a deploy is never served
+  half-old.
+- **Headers**: `nosniff`, a conservative `Referrer-Policy`, and a
+  `Permissions-Policy` that allows fullscreen and gamepad while denying camera,
+  microphone, geolocation and motion sensors — none of which the game uses.
+
+Everything the game needs at runtime is same-origin (Phaser is vendored, textures
+and audio are generated), so there are no CDN, CORS or CSP considerations. Save
+data lives in the visitor's own `localStorage`; nothing is sent anywhere and there
+is no backend to configure.
+
+The same output works on Netlify, Cloudflare Pages, GitHub Pages or S3 — point
+the host at the repo root with no build command. Only the header rules are
+Vercel-specific.
+
+---
+
 ## Controls
 
 | Action | Keyboard | Gamepad | Touch |
