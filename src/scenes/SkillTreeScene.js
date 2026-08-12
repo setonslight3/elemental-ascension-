@@ -8,7 +8,7 @@
 
 import { ctx } from '../core/Context.js';
 import { VIEW } from '../data/Balance.js';
-import { PALETTE, textStyle, button, panel, fmt, hex } from '../ui/UI.js';
+import { PALETTE, textStyle, button, panel, fmt, hex, onTap, setTapArea } from '../ui/UI.js';
 import { BRANCHES, SKILLS_BY_BRANCH, tierRequirement, SKILL_BY_ID } from '../data/Skills.js';
 import { formatStat } from '../systems/Stats.js';
 import { STAT_LABEL } from '../data/Items.js';
@@ -102,10 +102,9 @@ export default class SkillTreeScene extends Phaser.Scene {
     const rank = this.add.text(w - 14, h / 2, '', textStyle(16, PALETTE.textDim)).setOrigin(1, 0.5);
     c.add([title, desc, rank]);
 
-    c.setSize(w, h);
-    c.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
+    setTapArea(c, 0, 0, w, h);
     c.input.cursor = 'pointer';
-    c.on('pointerup', () => this._openDetail(node, branch));
+    onTap(c, () => this._openDetail(node, branch));
     c.on('pointerover', () => { c.hovered = true; this._drawNode(view); });
     c.on('pointerout', () => { c.hovered = false; this._drawNode(view); });
 

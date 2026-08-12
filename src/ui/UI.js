@@ -124,23 +124,54 @@ export function button(scene, x, y, w, h, label, onClick, opts = {}) {
 
   draw('out');
 
-  // The hit area is the full rect — no fiddly per-glyph hit testing.
-  c.setInteractive(new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h), Phaser.Geom.Rectangle.Contains);
+  // Drawn centred on the container's position, so that is the region to make
+  // tappable. setTapArea handles Phaser's displayOrigin shift.
+  setTapArea(c, -w / 2, -h / 2, w, h);
   c.input.cursor = 'pointer';
+
+  /**
+   * Activation is split by input type, because "press and release over the
+   * target" is a mouse idiom that touch keeps breaking:
+   *
+   *  - A finger almost always moves a few pixels between down and up. If that
+   *    drift leaves the button, Phaser delivers `pointerupoutside` instead of
+   *    `pointerup` and a mouse-style handler silently does nothing.
+   *  - On touch the press *is* the decision, so firing on down also makes the
+   *    UI feel immediate rather than laggy.
+   *
+   * So: touch fires on down, mouse fires on up, and `fired` guarantees exactly
+   * one activation per press either way.
+   */
+  let fired = false;
+
+  const activate = () => {
+    if (!c.enabled || fired) return;
+    fired = true;
+    draw('out');
+    onClick?.();
+  };
 
   c.on('pointerover', () => { if (c.enabled) draw('over'); });
   c.on('pointerout', () => draw('out'));
-  c.on('pointerdown', () => {
+
+  c.on('pointerdown', (pointer) => {
     if (!c.enabled) return;
+    fired = false;
     draw('down');
     scene.tweens.add({ targets: c, scaleX: 0.96, scaleY: 0.96, duration: 70, yoyo: true });
     scene.audio?.play('ui');
+    if (pointer && pointer.wasTouch) activate();
   });
-  c.on('pointerup', () => {
+
+  c.on('pointerup', (pointer) => {
     if (!c.enabled) return;
+    if (pointer && pointer.wasTouch) { draw('out'); return; }
     draw('over');
-    onClick?.();
+    activate();
   });
+
+  // A touch that drifts off the button still counts — the press already fired.
+  c.on('pointerupoutside', () => draw('out'));
 
   c.setEnabled = (on) => {
     c.enabled = on;
@@ -173,15 +204,28 @@ export function iconButton(scene, x, y, size, iconKey, onClick, opts = {}) {
     .setTint(opts.tint ?? 0xffd9b8);
   c.add([bg, icon]);
   c.setSize(size, size);
-  c.setInteractive(new Phaser.Geom.Rectangle(-size / 2, -size / 2, size, size), Phaser.Geom.Rectangle.Contains);
+  // Touch targets are padded well beyond the drawn square: the icon is the
+  // affordance, not the hit area.
+  const pad = size * 0.28;
+  setTapArea(c, -size / 2 - pad, -size / 2 - pad, size + pad * 2, size + pad * 2);
   c.input.cursor = 'pointer';
+
+  // Same touch-fires-on-press rule as `button()`; see the note there.
+  let fired = false;
+  const activate = () => { if (!fired) { fired = true; onClick?.(); } };
+
   c.on('pointerover', () => draw(true));
   c.on('pointerout', () => draw(false));
-  c.on('pointerdown', () => {
+  c.on('pointerdown', (pointer) => {
+    fired = false;
     scene.tweens.add({ targets: c, scaleX: 0.9, scaleY: 0.9, duration: 70, yoyo: true });
     scene.audio?.play('ui');
+    if (pointer && pointer.wasTouch) activate();
   });
-  c.on('pointerup', () => onClick?.());
+  c.on('pointerup', (pointer) => {
+    if (pointer && pointer.wasTouch) return;
+    activate();
+  });
   return c;
 }
 
@@ -278,7 +322,8 @@ export function scrollList(scene, x, y, w, h, items, renderItem, opts = {}) {
       rows.push(row);
       contentHeight += (row.rowHeight || rowHeight) + gap;
       if (onSelect) {
-        row.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, row.rowHeight || rowHeight), Phaser.Geom.Rectangle.Contains);
+        // Rows draw from their own top-left corner.
+        setTapArea(row, 0, 0, w, row.rowHeight || rowHeight);
         row.on('pointerup', () => { if (!api.dragged) onSelect(item, i); });
       }
     });
@@ -426,6 +471,63 @@ export class Toaster {
     for (const c of this.items) c.destroy(true);
     this.items = [];
   }
+}
+
+/**
+ * Make a Container tappable over an exact region of its own local space.
+ *
+ * This exists because Phaser's hit testing for Containers is easy to get
+ * silently wrong. `InputManager.pointWithinHitArea` adds the object's
+ * `displayOrigin` to the local point *before* testing it against the hit area:
+ *
+ *     local = pointer - container.position
+ *     local += displayOrigin          // (width/2, height/2) after setSize()
+ *     hitArea.contains(local)
+ *
+ * So a "natural" hit area of `(-w/2, -h/2, w, h)` on a centred button actually
+ * tests the region `[x - w, x]` — the whole target is displaced by half its
+ * width, and only the left half of the button responds. Clicking the dead
+ * centre still works (it lands exactly on the inclusive edge), which is why
+ * mouse testing and any automated click aimed at a centre passes while a real
+ * thumb misses roughly half the time.
+ *
+ * Pass the region as it is *drawn* and this compensates.
+ *
+ * @param {Phaser.GameObjects.Container} container
+ * @param {number} x left edge of the drawn region, in container-local space
+ * @param {number} y top edge of the drawn region
+ * @param {number} w @param {number} h
+ */
+export function setTapArea(container, x, y, w, h) {
+  container.setSize(w, h);
+  // displayOrigin is (w/2, h/2) once the size is set; cancel it out.
+  const rect = new Phaser.Geom.Rectangle(x + w / 2, y + h / 2, w, h);
+  container.setInteractive(rect, Phaser.Geom.Rectangle.Contains);
+  return container;
+}
+
+/**
+ * Attach a tap handler that behaves on both touch and mouse.
+ *
+ * Touch fires on press (a finger drifting a few pixels must not swallow the
+ * tap), mouse fires on release (so you can still slide off to cancel), and it
+ * can only fire once per press. Use this for anything clickable that is not a
+ * `button()` — cards, rows, toggles.
+ *
+ * @param {Phaser.GameObjects.GameObject} obj must already be interactive
+ * @param {() => void} handler
+ */
+export function onTap(obj, handler) {
+  let fired = false;
+  obj.on('pointerdown', (pointer) => {
+    fired = false;
+    if (pointer && pointer.wasTouch) { fired = true; handler(); }
+  });
+  obj.on('pointerup', (pointer) => {
+    if (pointer && pointer.wasTouch) return;
+    if (!fired) { fired = true; handler(); }
+  });
+  return obj;
 }
 
 /* ------------------------------------------------------------------ helpers */

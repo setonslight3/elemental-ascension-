@@ -9,6 +9,8 @@
 import { VIEW, PHYSICS } from './data/Balance.js';
 import { flushSave } from './systems/Save.js';
 import { ctx } from './core/Context.js';
+import { designWidthFor, manageViewport, armAutoFullscreen } from './systems/Viewport.js';
+import { diagnosticsRequested, installDiagnostics } from './systems/Diagnostics.js';
 
 import BootScene from './scenes/BootScene.js';
 import MenuScene from './scenes/MenuScene.js';
@@ -37,6 +39,10 @@ if (!window.Phaser) {
  * dodging a Brute. 2 is the sweet spot.
  */
 const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+// Size the design surface to the real host element before Phaser boots, then
+// let manageViewport() keep it matched as the visible area changes.
+VIEW.WIDTH = designWidthFor();
 
 const config = {
   type: Phaser.AUTO,
@@ -108,6 +114,17 @@ const config = {
 const game = new Phaser.Game(config);
 window.__EA_GAME__ = game;
 
+/**
+ * Keep the design surface matched to the visible area, and offer to take over
+ * the whole screen on the first tap. Both are what stop a phone browser's URL
+ * bar from stealing a third of the display.
+ */
+manageViewport(game);
+armAutoFullscreen(game, () => ctx.profile?.settings?.autoFullscreen !== false);
+
+// `?diag` puts a live readout of viewport, canvas and pointer mapping on screen.
+if (diagnosticsRequested()) installDiagnostics(game);
+
 /* --------------------------------------------------------- page lifecycle */
 
 /** Audio contexts must be started by a user gesture on iOS and Android. */
@@ -141,20 +158,7 @@ window.addEventListener('pagehide', onHide);
 window.addEventListener('blur', onHide);
 window.addEventListener('focus', onShow);
 
-/**
- * Orientation and resize: Phaser's FIT handles the letterboxing, but mobile
- * browsers report stale sizes right after a rotation, so we nudge it again a
- * beat later.
- */
-const refreshScale = () => {
-  game.scale.refresh();
-  setTimeout(() => game.scale.refresh(), 250);
-};
-window.addEventListener('orientationchange', refreshScale);
-window.addEventListener('resize', refreshScale);
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', refreshScale);
-}
+// Resize, orientation and fullscreen handling all live in manageViewport().
 
 // Stop iOS Safari from treating a two-finger tap on the canvas as a zoom.
 document.addEventListener('gesturestart', (e) => e.preventDefault());

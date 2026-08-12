@@ -276,6 +276,71 @@ Landscape phone play is the requirement that touches the most code.
 
 ---
 
+## 14. The one that got through: Container hit areas
+
+Reported from a real Android phone — "the buttons don't work at all, only the
+music". Worth writing down because of *why* every test missed it.
+
+Phaser adds a Container's `displayOrigin` to the local point **before** testing
+it against the hit area:
+
+```
+local  = pointer − container.position
+local += displayOrigin          // (w/2, h/2) once setSize() is called
+hitArea.contains(local)
+```
+
+So the natural-looking hit area for a centred button, `(-w/2, -h/2, w, h)`,
+actually tests the region `[x − w, x]` — the entire target sits half a button
+to the left of the button. Only the left portion responds.
+
+The exact centre still works, because it lands precisely on the rectangle's
+inclusive edge. That is why it survived every test: mouse clicks and automated
+taps are aimed at centres. A thumb is not, so on a phone roughly half of all
+presses did nothing — while the music, which is WebAudio and needs no hit test,
+kept playing and made it look like the game was alive but frozen.
+
+The fix is `setTapArea()` in `ui/UI.js`, which takes the region as it is
+*drawn* and compensates for the origin shift, and is now the only way the game
+makes a Container interactive. `hitareas.mjs` checks a grid of points across
+every interactive object in every scene and fails on anything under 100%
+coverage — 115 elements, none of which the old centre-only tests could have
+caught.
+
+Two related fixes went in alongside it:
+
+- **Touch fires on press, not release.** A finger almost always drifts a few
+  pixels between down and up; when that drift leaves the button, Phaser sends
+  `pointerupoutside` and a mouse-style handler silently does nothing.
+- **The canvas was centred twice** — by flexbox on the host element and again
+  by Phaser's `autoCenter` margins — leaving it offset and overflowing. The
+  host is no longer a flex container.
+
+## 15. Screen fitting on a phone browser
+
+The same report: a third of the screen was black bars, and there was no way to
+go fullscreen.
+
+Two causes. The design surface was sized from `window.innerHeight`, which on
+Android Chrome is the *layout* viewport — it stays at the "URL bar hidden"
+height even while the bar is covering the screen — so the surface was chosen
+for a viewport that did not exist. And it was chosen once, at load, so the URL
+bar sliding away later never re-fitted anything.
+
+`systems/Viewport.js` now measures the actual host element, re-measures on
+resize, rotation, `visualViewport` changes and fullscreen transitions, and
+re-lays out the UI scenes when the aspect ratio moves materially. It also
+refreshes Phaser's cached canvas bounds on every one of those events and on
+each `touchstart`, since stale bounds are the difference between a tap that
+lands and one that does not.
+
+Fullscreen is the real fix for a phone browser, so it is now first-class: a
+button on the title screen, in Settings and in the pause menu, plus an
+opt-out auto-request on the first tap. Entering fullscreen removes the URL bar
+entirely, which both reclaims the screen and eliminates the viewport-offset
+class of bug. iPhone Safari refuses element fullscreen outright; there the
+button says so rather than appearing to do nothing.
+
 ## Deliberate scope boundaries
 
 Water, Earth, Air, PvP, co-op, guilds and raids are listed as Future in the scope

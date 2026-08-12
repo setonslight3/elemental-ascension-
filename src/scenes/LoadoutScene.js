@@ -8,7 +8,7 @@
 
 import { ctx } from '../core/Context.js';
 import { VIEW, RARITY } from '../data/Balance.js';
-import { PALETTE, textStyle, button, panel, scrollList, fmt, hex, Toaster } from '../ui/UI.js';
+import { PALETTE, textStyle, button, panel, scrollList, fmt, hex, Toaster, onTap, setTapArea } from '../ui/UI.js';
 import { SLOTS, BASES, AFFIX_BY_ID, STAT_LABEL, LOWER_IS_BETTER, UNIQUES } from '../data/Items.js';
 import { itemStats, itemScore, formatStat } from '../systems/Stats.js';
 
@@ -109,10 +109,9 @@ export default class LoadoutScene extends Phaser.Scene {
     const sub = this.add.text(14, 52, '', textStyle(12, PALETTE.textFaint));
     const power = this.add.text(w - 14, 16, '', textStyle(14, '#ffd166')).setOrigin(1, 0);
     c.add([label, name, sub, power]);
-    c.setSize(w, h);
-    c.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
+    setTapArea(c, 0, 0, w, h);
     c.input.cursor = 'pointer';
-    c.on('pointerup', () => {
+    onTap(c, () => {
       const item = this.profile.equippedItem(slot.id);
       if (item) { this.selected = item; this._refreshDetail(); this.audio.play('ui'); }
       else { this.filter = slot.id; this._refreshList(); this._drawTabs(); }

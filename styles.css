@@ -31,12 +31,23 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/**
+ * The canvas host. Deliberately NOT a flex container: Phaser's `autoCenter`
+ * centres the canvas itself with margins, and combining the two centres it
+ * twice — the canvas ends up offset and overflowing its parent.
+ *
+ * Height comes from the dynamic viewport unit where supported, so a mobile
+ * URL bar sliding in and out resizes this box instead of leaving the canvas
+ * scaled for a viewport that is no longer there.
+ */
 #game {
   position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 #game canvas {

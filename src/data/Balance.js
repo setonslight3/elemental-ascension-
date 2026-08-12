@@ -7,29 +7,17 @@
  */
 
 /**
- * The design surface. Height is fixed at 720; width adapts once, at load, to
- * the device's landscape aspect ratio.
+ * The design surface. Height is fixed at 720; the width adapts to the device's
+ * aspect ratio so a 20:9 phone gets play area instead of letterboxing.
  *
- * Why: a 16:9 surface letterboxes ~150px of black onto a modern 20:9 phone.
- * Widening the surface instead gives those pixels back as play area, and every
- * layout in the game is either centred or anchored to an edge, so they follow
- * for free. The lower clamp is 16:9 so no layout is ever squeezed narrower than
- * it was authored for (a 4:3 tablet simply letterboxes top and bottom instead).
+ * WIDTH is deliberately mutable: Viewport.js measures the real host element and
+ * rewrites it whenever the visible area changes (URL bar sliding away, rotation,
+ * entering fullscreen), then re-lays out the UI. Every module reads it through
+ * this shared object, so they all follow. The value here is only a placeholder
+ * for the moment before the first measurement.
  */
-function designWidth() {
-  try {
-    const w = window.innerWidth || 1280;
-    const h = window.innerHeight || 720;
-    const ratio = Math.max(w, h) / Math.max(1, Math.min(w, h));
-    const clamped = Math.min(2.2, Math.max(16 / 9, ratio));
-    return Math.round((720 * clamped) / 2) * 2;
-  } catch {
-    return 1280;
-  }
-}
-
 export const VIEW = {
-  WIDTH: designWidth(),
+  WIDTH: 1280,
   HEIGHT: 720,
   // Anything that must hug a device edge uses the safe-area pad.
   SAFE_PAD: 18

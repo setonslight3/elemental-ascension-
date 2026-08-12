@@ -8,6 +8,7 @@
 import { ctx } from '../core/Context.js';
 import { VIEW, PROGRESSION } from '../data/Balance.js';
 import { PALETTE, textStyle, button, panel, fmt, fmtTime } from '../ui/UI.js';
+import { fullscreenSupported, isFullscreen, toggleFullscreen } from '../systems/Viewport.js';
 
 export default class PauseScene extends Phaser.Scene {
   constructor() { super('PauseScene'); }
@@ -25,7 +26,7 @@ export default class PauseScene extends Phaser.Scene {
 
     this.add.rectangle(0, 0, W, H, 0x05030a, 0.82).setOrigin(0).setDepth(0).setInteractive();
 
-    panel(this, W / 2 - 250, 96, 500, 528, { depth: 1, accent: PALETTE.ember });
+    panel(this, W / 2 - 250, 92, 500, 566, { depth: 1, accent: PALETTE.ember });
 
     this.add.text(W / 2, 128, 'PAUSED', textStyle(38, '#ffd166')).setOrigin(0.5).setDepth(2);
     this.add.text(W / 2, 168, this.play.stage.name.toUpperCase(),
@@ -52,16 +53,26 @@ export default class PauseScene extends Phaser.Scene {
     /* ------------------------------------------------------------ buttons */
 
     const bx = W / 2;
-    let by = 396;
-    const gap = 60;
+    let by = 372;
+    const gap = 54;
 
-    this.add.existing(button(this, bx, by, 420, 52, 'RESUME', () => this._resume(),
+    this.add.existing(button(this, bx, by, 420, 48, 'RESUME', () => this._resume(),
       { style: 'primary', depth: 2 }));
     by += gap;
 
     this.add.existing(button(this, bx, by, 420, 48, 'RESTART STAGE', () => this._restart(),
       { style: 'ghost', depth: 2 }));
     by += gap;
+
+    if (fullscreenSupported()) {
+      this.fsBtn = button(this, bx, by, 420, 48, '', async () => {
+        await toggleFullscreen();
+        this.fsBtn.setLabel(isFullscreen() ? 'EXIT FULLSCREEN' : 'FULLSCREEN');
+      }, { style: 'ghost', depth: 2 });
+      this.fsBtn.setLabel(isFullscreen() ? 'EXIT FULLSCREEN' : 'FULLSCREEN');
+      this.add.existing(this.fsBtn);
+      by += gap;
+    }
 
     this.add.existing(button(this, bx, by, 420, 48, 'SETTINGS',
       () => {

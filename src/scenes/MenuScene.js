@@ -6,6 +6,7 @@ import { ctx } from '../core/Context.js';
 import { VIEW } from '../data/Balance.js';
 import { PALETTE, textStyle, button, panel, fmt, fmtTime } from '../ui/UI.js';
 import { STAGES } from '../data/Stages.js';
+import { fullscreenSupported, isFullscreen, toggleFullscreen } from '../systems/Viewport.js';
 
 export default class MenuScene extends Phaser.Scene {
   constructor() { super('MenuScene'); }
@@ -120,11 +121,46 @@ export default class MenuScene extends Phaser.Scene {
       'Keyboard  ·  Gamepad  ·  Touch (landscape)',
       textStyle(13, PALETTE.textFaint)).setOrigin(0.5);
 
+    /* --------------------------------------------------------- fullscreen */
+
+    // On a phone browser the URL bar can eat a third of the screen, so this is
+    // the most valuable button on the menu — placed where a thumb already is.
+    if (fullscreenSupported()) {
+      this.fsBtn = button(this, 128, H - 52, 216, 46, '', () => this._toggleFullscreen(),
+        { style: 'ghost', fontSize: 14, depth: 5 });
+      this.add.existing(this.fsBtn);
+      this._syncFullscreenLabel();
+      this._onFsChange = () => this._syncFullscreenLabel();
+      document.addEventListener('fullscreenchange', this._onFsChange);
+      document.addEventListener('webkitfullscreenchange', this._onFsChange);
+      this.events.once('shutdown', () => {
+        document.removeEventListener('fullscreenchange', this._onFsChange);
+        document.removeEventListener('webkitfullscreenchange', this._onFsChange);
+      });
+    }
+
     this.audio.playMusic('menu');
 
     // Any key or tap on the backdrop also starts, for controller users.
     this.input.keyboard.once('keydown-ENTER', () => this._start());
     this.input.keyboard.once('keydown-SPACE', () => this._start());
+  }
+
+  _syncFullscreenLabel() {
+    if (!this.fsBtn || !this.fsBtn.active) return;
+    this.fsBtn.setLabel(isFullscreen() ? 'EXIT FULLSCREEN' : 'FULLSCREEN');
+  }
+
+  async _toggleFullscreen() {
+    const ok = await toggleFullscreen();
+    this._syncFullscreenLabel();
+    if (!ok && !isFullscreen()) {
+      // iPhone Safari refuses element fullscreen outright. Say so rather than
+      // leaving a button that appears to do nothing.
+      this.add.text(VIEW.WIDTH / 2, VIEW.HEIGHT - 74,
+        'This browser will not allow fullscreen. Try adding the page to your home screen.',
+        textStyle(13, '#ffb43d')).setOrigin(0.5).setDepth(6);
+    }
   }
 
   _start() {

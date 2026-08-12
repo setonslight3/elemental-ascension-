@@ -8,8 +8,9 @@
 
 import { ctx } from '../core/Context.js';
 import { VIEW } from '../data/Balance.js';
-import { PALETTE, textStyle, button, panel, fmt, Toaster } from '../ui/UI.js';
+import { PALETTE, textStyle, button, panel, fmt, Toaster, onTap } from '../ui/UI.js';
 import { exportProfile, importProfile, persistenceAvailable } from '../systems/Save.js';
+import { fullscreenSupported, isFullscreen, toggleFullscreen } from '../systems/Viewport.js';
 
 export default class SettingsScene extends Phaser.Scene {
   constructor() { super('SettingsScene'); }
@@ -77,7 +78,16 @@ export default class SettingsScene extends Phaser.Scene {
     y = this._toggle(x + 20, y, 340, 'Vibration', 'haptics');
     y = this._toggle(x + 20, y, 340, 'Auto-sprint', 'autoSprint');
 
-    this.add.text(x + 20, y + 10,
+    if (fullscreenSupported()) {
+      y = this._toggle(x + 20, y, 340, 'Fullscreen on first tap', 'autoFullscreen');
+      this.fsBtn = button(this, x + 190, y + 24, 340, 44, '',
+        () => this._toggleFullscreen(), { style: 'ghost', fontSize: 14, depth: 2 });
+      this.add.existing(this.fsBtn);
+      this._syncFullscreenLabel();
+      y += 56;
+    }
+
+    this.add.text(x + 20, y + 6,
       'Push the stick to its edge to sprint.\nThe stick appears wherever your thumb lands.',
       textStyle(12, PALETTE.textFaint, { lineSpacing: 4 }));
 
@@ -182,7 +192,7 @@ export default class SettingsScene extends Phaser.Scene {
 
     const hit = this.add.rectangle(x + w / 2, y + 12, w, 40, 0x000000, 0)
       .setInteractive().setDepth(2);
-    hit.on('pointerup', () => {
+    onTap(hit, () => {
       const next = !this.profile.settings[key];
       this.profile.setSetting(key, next);
       draw(next);
@@ -203,7 +213,7 @@ export default class SettingsScene extends Phaser.Scene {
     render();
     const hit = this.add.rectangle(x + w / 2, y + 10, w, 40, 0x000000, 0)
       .setInteractive().setDepth(2);
-    hit.on('pointerup', () => {
+    onTap(hit, () => {
       const cur = this.profile.settings[key];
       const idx = Math.max(0, options.findIndex(([v]) => v === cur));
       const next = options[(idx + 1) % options.length][0];
@@ -212,6 +222,16 @@ export default class SettingsScene extends Phaser.Scene {
       this.audio.play('ui');
     });
     return y + 44;
+  }
+
+  _syncFullscreenLabel() {
+    if (!this.fsBtn || !this.fsBtn.active) return;
+    this.fsBtn.setLabel(isFullscreen() ? 'LEAVE FULLSCREEN NOW' : 'GO FULLSCREEN NOW');
+  }
+
+  async _toggleFullscreen() {
+    await toggleFullscreen();
+    this._syncFullscreenLabel();
   }
 
   /* -------------------------------------------------------------- preview */

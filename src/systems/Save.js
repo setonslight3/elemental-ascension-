@@ -154,7 +154,9 @@ export function freshProfile() {
       leftHanded: false,
       haptics: true,
       autoSprint: false,
-      showFps: false
+      showFps: false,
+      /** Take over the whole screen on the first tap (touch devices only). */
+      autoFullscreen: true
     },
 
     seenTutorial: false

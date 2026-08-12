@@ -10,7 +10,7 @@
 
 import { ctx } from '../core/Context.js';
 import { VIEW } from '../data/Balance.js';
-import { PALETTE, textStyle, button, panel, bar, fmt, Toaster } from '../ui/UI.js';
+import { PALETTE, textStyle, button, panel, bar, fmt, Toaster, onTap, setTapArea } from '../ui/UI.js';
 import { createRig, poseHumanoid } from '../entities/Rig.js';
 import { STAGES } from '../data/Stages.js';
 import { itemScore } from '../systems/Stats.js';
@@ -256,8 +256,7 @@ export default class HubScene extends Phaser.Scene {
       });
     }
 
-    c.setSize(w, h);
-    c.setInteractive(new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h), Phaser.Geom.Rectangle.Contains);
+    setTapArea(c, -w / 2, -h / 2, w, h);
     c.input.cursor = 'pointer';
     c.on('pointerover', () => draw(true));
     c.on('pointerout', () => draw(false));
@@ -265,7 +264,7 @@ export default class HubScene extends Phaser.Scene {
       this.audio.play('ui');
       this.tweens.add({ targets: c, scaleX: 0.96, scaleY: 0.96, duration: 80, yoyo: true });
     });
-    c.on('pointerup', () => spec.action());
+    onTap(c, () => spec.action());
     return c;
   }
 
