@@ -160,6 +160,12 @@ localStorage.setItem('ea:cloud', JSON.stringify({
   changes nothing.
 - **Progress uploads automatically** after every stage, win or lose. Failures
   are logged and retried on the next stage; they never interrupt play.
+- **The ACCOUNT card tells the truth about the last upload.** It reads
+  *Not synced yet*, *Synced*, or *Sync failed* — never a reassuring "Synced"
+  over an upload that never landed. A failure is remembered across reloads, so
+  closing the tab does not launder it away. Returning to the Hub quietly retries
+  once; if that works the player gets a brief confirmation, and only a second
+  failure warns them.
 - **Signing in reconciles rather than overwrites.** A fresh device adopts the
   account's save; an account with no save adopts the device's.
 - **A genuine conflict asks.** If both sides have real progress and they
@@ -176,6 +182,7 @@ localStorage.setItem('ea:cloud', JSON.stringify({
 | Nothing happens, console shows a CORS error | The `url` is wrong or has a trailing path. It should be the bare project URL. |
 | Confirmation link opens `localhost:3000` | Site URL is still the default. See step 3b. |
 | "Email link is invalid or has expired" | The link was already used, or it timed out. Sign in normally instead. |
+| ACCOUNT card stuck on "Sync failed" | Uploads are being rejected — usually the missing policies above. Run **TEST CONNECTION**; the save is still safe locally. |
 
 ## Privacy
 

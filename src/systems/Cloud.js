@@ -112,6 +112,21 @@ function storeSession(session) {
   } catch { /* storage blocked — the session lasts this tab only */ }
 }
 
+const HEALTH_KEY = 'elemental-ascension/sync';
+
+function loadSyncHealth() {
+  try {
+    const raw = window.localStorage?.getItem(HEALTH_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return { at: parsed?.at ?? null, error: parsed?.error ?? null };
+  } catch { return { at: null, error: null }; }
+}
+
+function storeSyncHealth(health) {
+  try { window.localStorage?.setItem(HEALTH_KEY, JSON.stringify(health)); }
+  catch { /* storage blocked */ }
+}
+
 const sessionFrom = (payload) => ({
   accessToken: payload.access_token,
   refreshToken: payload.refresh_token,
@@ -128,9 +143,36 @@ export class CloudSaves {
     this.session = loadSession();
     this.listeners = new Set();
     this.status = this.session ? 'signed-in' : 'signed-out';
-    this.lastSyncAt = null;
     this.lastError = null;
     this.busy = false;
+
+    /**
+     * Sync health, remembered across reloads.
+     *
+     * A save system that fails quietly is worse than one that has no cloud at
+     * all: the player believes their progress is backed up, plays for an hour,
+     * switches device and finds nothing. So the last outcome is recorded and
+     * surfaced in the UI rather than only logged to a console nobody opens.
+     */
+    const health = loadSyncHealth();
+    this.lastSyncAt = health.at;
+    this.lastSyncError = health.error;
+  }
+
+  _recordSync(error) {
+    this.lastSyncError = error || null;
+    if (!error) this.lastSyncAt = Date.now();
+    storeSyncHealth({ at: this.lastSyncAt, error: this.lastSyncError });
+    this._emit();
+  }
+
+  /** One-line, honest description of where this device's progress stands. */
+  get syncSummary() {
+    if (!this.configured) return { state: 'local', text: 'Local save only' };
+    if (!this.signedIn) return { state: 'signed-out', text: 'Save to cloud' };
+    if (this.lastSyncError) return { state: 'error', text: 'Sync failed' };
+    if (!this.lastSyncAt) return { state: 'pending', text: 'Not synced yet' };
+    return { state: 'ok', text: 'Synced' };
   }
 
   get configured() { return cloudConfigured(); }
@@ -410,10 +452,11 @@ export class CloudSaves {
           updated_at: new Date().toISOString()
         }]
       });
-      this.lastSyncAt = Date.now();
+      this._recordSync(null);
       this._setStatus('signed-in');
       return true;
     } catch (err) {
+      this._recordSync(err.message);
       this._setStatus('signed-in', err.message);
       throw err;
     }
@@ -429,10 +472,11 @@ export class CloudSaves {
         return null;
       }
       this.profile.replaceWith(remote.data);
-      this.lastSyncAt = Date.now();
+      this._recordSync(null);
       this._setStatus('signed-in');
       return remote;
     } catch (err) {
+      this._recordSync(err.message);
       this._setStatus('signed-in', err.message);
       throw err;
     }
@@ -477,14 +521,30 @@ export class CloudSaves {
     return { action: 'conflict', local, remote: remote.data };
   }
 
-  /** Background push after a stage; failures are logged, never surfaced mid-run. */
+  /**
+   * Background push after a stage. It must never interrupt play, but it also
+   * must not fail invisibly — the outcome is recorded so the Hub can say
+   * "Sync failed" instead of a reassuring "Synced" that is not true.
+   *
+   * @returns {Promise<boolean>} whether the upload succeeded
+   */
   async autoPush() {
-    if (!this.configured || !this.signedIn) return;
+    if (!this.configured || !this.signedIn) return false;
     try {
       await this.push();
+      return true;
     } catch (err) {
-      console.warn('[cloud] auto-sync failed, will retry later', err.message);
+      console.warn('[cloud] auto-sync failed, will retry later:', err.message);
+      return false;
     }
+  }
+
+  /** Quietly retry a previously failed sync. Used on returning to the Hub. */
+  async retryIfFailed() {
+    if (!this.configured || !this.signedIn || !this.lastSyncError) return null;
+    const before = this.lastSyncError;
+    const ok = await this.autoPush();
+    return ok ? { recovered: true, was: before } : { recovered: false, error: this.lastSyncError };
   }
 }
 

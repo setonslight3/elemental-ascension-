@@ -102,6 +102,7 @@ export default class HubScene extends Phaser.Scene {
       .setTint(0xff7a2f).setAlpha(0.18).setBlendMode(Phaser.BlendModes.ADD).setDepth(-26);
 
     this._announceAuthRedirect();
+    this._checkSyncHealth();
 
     if (wasHurt) {
       this.time.delayedCall(400, () => {
@@ -213,6 +214,35 @@ export default class HubScene extends Phaser.Scene {
   }
 
   /**
+   * If the last upload failed, retry it quietly on returning to the Hub and
+   * only bother the player if it fails again. Most failures are a dropped
+   * connection mid-stage, which fixes itself; the ones that do not are worth
+   * knowing about before another hour of progress goes unsaved.
+   */
+  _checkSyncHealth() {
+    const cloud = ctx.cloud;
+    if (!cloud?.signedIn || !cloud.lastSyncError) return;
+
+    cloud.retryIfFailed().then((result) => {
+      if (!result || !this.scene.isActive()) return;
+      if (result.recovered) {
+        this.toaster.show('Progress synced to your account.', { colour: '#6bff9c' });
+      } else {
+        this.toaster.show(`Cloud sync failing: ${result.error}`,
+          { colour: '#ffb43d', duration: 6000 });
+      }
+      this._refreshAccountCard();
+    });
+  }
+
+  /** Redraw the account card's sub-label after the sync state changes. */
+  _refreshAccountCard() {
+    if (this.accountDescText?.active) {
+      this.accountDescText.setText(this._accountDesc());
+    }
+  }
+
+  /**
    * Report the result of an email-confirmation link, once. Landing back in the
    * game with no acknowledgement leaves the player unsure whether it worked.
    */
@@ -235,10 +265,14 @@ export default class HubScene extends Phaser.Scene {
     });
   }
 
-  /** Sub-label for the account card: signed in, available, or local-only. */
+  /**
+   * Sub-label for the account card. Reports the *real* state, including a
+   * failed upload — telling a player "Synced" when the last save did not
+   * reach the server is the one thing a backup feature must never do.
+   */
   _accountDesc() {
     if (!cloudConfigured()) return 'Local save only';
-    return ctx.cloud?.signedIn ? 'Synced' : 'Save to cloud';
+    return ctx.cloud?.syncSummary.text ?? 'Save to cloud';
   }
 
   _upgradeCount() {
@@ -278,7 +312,9 @@ export default class HubScene extends Phaser.Scene {
     c.add(this.add.image(0, -h / 2 + 34, spec.icon)
       .setDisplaySize(30, 30).setTint(primary ? 0xffd166 : 0xd9c2e8));
     c.add(this.add.text(0, 6, spec.label, textStyle(20, primary ? '#ffd166' : PALETTE.text)).setOrigin(0.5));
-    c.add(this.add.text(0, 32, spec.desc, textStyle(13, PALETTE.textFaint)).setOrigin(0.5));
+    const descText = this.add.text(0, 32, spec.desc, textStyle(13, PALETTE.textFaint)).setOrigin(0.5);
+    c.add(descText);
+    if (spec.key === 'account') this.accountDescText = descText;
 
     const badgeCount = spec.badge ? spec.badge() : 0;
     if (badgeCount > 0) {
