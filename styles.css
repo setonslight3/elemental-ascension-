@@ -95,6 +95,44 @@ html, body {
   color: #b9a8c9;
 }
 
+/* The one-tap way through the gate: fullscreen + landscape lock, so the
+   player never has to reach for the system auto-rotate switch. Sized for a
+   thumb rather than a cursor — this is the only control on the screen. */
+#rotate-now {
+  display: block;
+  margin: 1.5rem auto 0;
+  min-height: 52px;
+  padding: .9rem 1.8rem;
+  font: inherit;
+  font-size: clamp(.85rem, 4vw, 1rem);
+  font-weight: 700;
+  letter-spacing: .16em;
+  color: var(--void);
+  background: linear-gradient(180deg, var(--ember-hot), var(--ember));
+  border: 0;
+  border-radius: 10px;
+  box-shadow: 0 0 26px rgba(255, 122, 47, .45);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#rotate-now:active { transform: translateY(1px); filter: brightness(1.1); }
+#rotate-now:disabled { opacity: .6; cursor: default; }
+
+#rotate-now:focus-visible {
+  outline: 3px solid var(--ember-hot);
+  outline-offset: 3px;
+}
+
+.rotate-note {
+  margin: .9rem auto 0;
+  max-width: 34ch;
+  font-size: clamp(.72rem, 3.2vw, .85rem);
+  line-height: 1.45;
+  color: #ffb43d;
+}
+
 .phone {
   width: 76px;
   height: 132px;

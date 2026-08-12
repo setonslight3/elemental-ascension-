@@ -9,7 +9,7 @@
 import { VIEW, PHYSICS } from './data/Balance.js';
 import { flushSave } from './systems/Save.js';
 import { ctx } from './core/Context.js';
-import { designWidthFor, manageViewport, armAutoFullscreen } from './systems/Viewport.js';
+import { designWidthFor, manageViewport, armAutoFullscreen, wireRotateGate } from './systems/Viewport.js';
 import { diagnosticsRequested, installDiagnostics } from './systems/Diagnostics.js';
 
 import BootScene from './scenes/BootScene.js';
@@ -122,6 +122,13 @@ window.__EA_GAME__ = game;
  */
 manageViewport(game);
 armAutoFullscreen(game, () => ctx.profile?.settings?.autoFullscreen !== false);
+
+/**
+ * The portrait gate hides the canvas, so nothing inside the game can be
+ * tapped while it is up. Give it its own way through — otherwise the only
+ * exit is the phone's system auto-rotate switch.
+ */
+wireRotateGate();
 
 // `?diag` puts a live readout of viewport, canvas and pointer mapping on screen.
 if (diagnosticsRequested()) installDiagnostics(game);

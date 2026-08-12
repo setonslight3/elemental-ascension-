@@ -105,11 +105,74 @@ export async function enterFullscreen() {
     try { await fn.call(el); } catch { return false; }
   }
   // Landscape lock is a bonus where supported; failure is not an error.
-  try {
-    if (screen.orientation?.lock) await screen.orientation.lock('landscape');
-  } catch { /* unsupported or denied */ }
+  await lockLandscape();
   return isFullscreen();
 }
+
+/* ------------------------------------------------------------ orientation */
+
+/**
+ * Can this browser turn the screen for us?
+ *
+ * Chrome and Firefox on Android can; Safari on iOS exposes no lock at all. The
+ * difference decides whether we offer a button or an apology, so it is checked
+ * rather than assumed — a button that silently does nothing is worse than no
+ * button.
+ */
+export const orientationLockSupported = () => !!(
+  typeof screen !== 'undefined' && screen.orientation && screen.orientation.lock
+);
+
+/**
+ * Ask the device to stay in landscape.
+ *
+ * Only legal while the document is fullscreen — the spec ties the two together
+ * so a page cannot seize the screen orientation in a background tab. Callers
+ * must enter fullscreen first.
+ *
+ * @returns {Promise<boolean>} whether the screen is now locked to landscape
+ */
+export async function lockLandscape() {
+  if (!orientationLockSupported()) return false;
+  try {
+    // 'landscape' rather than 'landscape-primary' so the player may hold the
+    // phone whichever way round is comfortable.
+    await screen.orientation.lock('landscape');
+    return true;
+  } catch {
+    return false;   // not fullscreen, unsupported, or refused by the OS
+  }
+}
+
+/**
+ * One tap: fill the screen and turn it sideways.
+ *
+ * This exists because the device's own auto-rotate setting is a poor gate for
+ * a game — a player who turns it on to play here then has it on everywhere
+ * else. A page that is fullscreen may lock its own orientation without that
+ * setting, so the game can rotate itself and leave the system preference
+ * alone.
+ *
+ * Reports the two outcomes separately: fullscreen can succeed while the lock
+ * fails (iOS, desktop), and the player needs to be told the truth about which.
+ *
+ * @returns {Promise<{fullscreen: boolean, locked: boolean}>}
+ */
+export async function goLandscape() {
+  const fullscreen = await enterFullscreen();
+  // enterFullscreen attempts the lock too, but only once and only if the
+  // fullscreen transition had resolved by then. Asking again is free — locking
+  // to the orientation already held resolves immediately — and it means a slow
+  // transition does not cost the player the rotation.
+  const locked = await lockLandscape();
+  return { fullscreen, locked };
+}
+
+/** Is the viewport currently wider than it is tall? */
+export const isLandscape = () => {
+  const { width, height } = measureHost();
+  return width >= height;
+};
 
 export async function exitFullscreen() {
   if (!isFullscreen()) return;
@@ -204,6 +267,56 @@ export function manageViewport(game) {
 
   apply('initial');
   return { apply, relayout: () => relayout(game, 'manual') };
+}
+
+/**
+ * Turn the "Rotate your device" screen into something you can act on.
+ *
+ * Without this the gate is a dead end: in portrait the canvas is hidden, so
+ * the in-game fullscreen button cannot be reached, and the only way through is
+ * to leave the game and enable the system auto-rotate setting — which then
+ * stays on in every other app.
+ *
+ * The button is revealed only where the browser can actually honour it. Where
+ * it cannot (iOS Safari), the original instruction stands unchanged rather
+ * than being replaced by a control that does nothing.
+ */
+export function wireRotateGate() {
+  const btn = document.getElementById('rotate-now');
+  const note = document.getElementById('rotate-note');
+  if (!btn) return;
+
+  if (!orientationLockSupported() || !fullscreenSupported()) {
+    if (note) {
+      note.textContent = 'This browser cannot rotate the screen for you — turn on auto-rotate, or use Chrome.';
+      note.hidden = false;
+    }
+    return;
+  }
+
+  btn.hidden = false;
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    const before = btn.textContent;
+    btn.textContent = 'ROTATING…';
+    let result = { fullscreen: false, locked: false };
+    try {
+      result = await goLandscape();
+    } catch (err) {
+      console.warn('[viewport] rotate request failed', err);
+    }
+    if (result.locked) return;   // the gate is about to disappear on its own
+
+    // Be specific about which half failed — "it didn't work" is not actionable.
+    btn.disabled = false;
+    btn.textContent = before;
+    if (note) {
+      note.textContent = result.fullscreen
+        ? 'Your browser would not hold the rotation. Turn on auto-rotate and turn the phone.'
+        : 'Your browser blocked fullscreen, which is needed to rotate. Turn the phone instead.';
+      note.hidden = false;
+    }
+  });
 }
 
 /**

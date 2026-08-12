@@ -16,11 +16,15 @@
   <div id="game"></div>
 
   <!-- Shown by CSS whenever the viewport is taller than it is wide. -->
-  <div id="rotate-gate" aria-hidden="true">
+  <div id="rotate-gate">
     <div class="rotate-inner">
       <div class="phone"><div class="phone-screen"></div></div>
       <h1>Rotate your device</h1>
       <p>Elemental Ascension is played in landscape.</p>
+      <!-- Revealed by Viewport.js only where the browser can honour it, so a
+           device that cannot rotate never shows a button that does nothing. -->
+      <button id="rotate-now" type="button" hidden>ROTATE FOR ME</button>
+      <p id="rotate-note" class="rotate-note" hidden></p>
     </div>
   </div>
 

@@ -6,7 +6,7 @@ import { ctx } from '../core/Context.js';
 import { VIEW } from '../data/Balance.js';
 import { PALETTE, textStyle, button, panel, fmt, fmtTime } from '../ui/UI.js';
 import { STAGES } from '../data/Stages.js';
-import { fullscreenSupported, isFullscreen, toggleFullscreen } from '../systems/Viewport.js';
+import { fullscreenSupported, isFullscreen, toggleFullscreen, orientationLockSupported } from '../systems/Viewport.js';
 
 export default class MenuScene extends Phaser.Scene {
   constructor() { super('MenuScene'); }
@@ -148,7 +148,11 @@ export default class MenuScene extends Phaser.Scene {
 
   _syncFullscreenLabel() {
     if (!this.fsBtn || !this.fsBtn.active) return;
-    this.fsBtn.setLabel(isFullscreen() ? 'EXIT FULLSCREEN' : 'FULLSCREEN');
+    // Where the browser can hold the orientation, going fullscreen also pins
+    // landscape — worth naming, because that is the part that saves the player
+    // from leaving auto-rotate switched on across their whole phone.
+    const enter = orientationLockSupported() ? 'FULLSCREEN + LOCK' : 'FULLSCREEN';
+    this.fsBtn.setLabel(isFullscreen() ? 'EXIT FULLSCREEN' : enter);
   }
 
   async _toggleFullscreen() {
