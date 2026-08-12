@@ -10,6 +10,13 @@ It takes about five minutes.
 
 ---
 
+> **This build is already pointed at a project**
+> (`kzlsyxxgepguwrnyyyvx.supabase.co`), so you only need **step 2** — running
+> the SQL. Steps 1 and 4 are here for anyone setting up a different project.
+>
+> After running it, open the game → **ACCOUNT** → **TEST CONNECTION** to
+> confirm.
+
 ## 1. Create a Supabase project
 
 Sign up at [supabase.com](https://supabase.com) (the free tier is plenty — a
@@ -58,8 +65,15 @@ create policy "players update their own save"
   with check (auth.uid() = user_id);
 ```
 
-Verify it worked: **Table Editor → saves** should show the table, and
-**Authentication → Policies** should list three policies against it.
+Verify it worked, either way:
+
+- **In Supabase:** Table Editor → `saves` shows the table, and Authentication →
+  Policies lists three policies against it.
+- **In the game (easier):** Hub → **ACCOUNT** → **TEST CONNECTION**. It reports
+  whether the server answers, whether the table exists, and — importantly —
+  whether Row Level Security is actually switched on. If RLS is off it says so
+  loudly, because that is the one misconfiguration that exposes every player's
+  save while otherwise looking like it works.
 
 ## 3. Decide about email confirmation
 

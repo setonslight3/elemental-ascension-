@@ -151,6 +151,68 @@ export class CloudSaves {
     this._emit();
   }
 
+  /**
+   * Self-test for the project setup, runnable from the Account screen.
+   *
+   * This exists because the two ways a Supabase setup goes wrong are silent
+   * from the player's side and opposite in severity:
+   *
+   *  - The SQL was never run, so the table is missing and nothing saves.
+   *  - The table exists but Row Level Security was NOT enabled, in which case
+   *    the anon key can read every player's save. That is the one genuinely
+   *    dangerous misconfiguration, and it looks identical to a working setup
+   *    until someone goes looking.
+   *
+   * A signed-out read tells the two apart: with RLS on it returns an empty
+   * list, with RLS off it returns rows.
+   *
+   * @returns {Promise<{ok:boolean, checks:Array<{name:string, pass:boolean, detail:string}>}>}
+   */
+  async checkSetup() {
+    const cfg = resolveCloudConfig();
+    const checks = [];
+    const add = (name, pass, detail) => checks.push({ name, pass, detail });
+
+    if (!cfg.url || !cfg.anonKey) {
+      add('Configuration', false, 'No project URL or key in src/config.js.');
+      return { ok: false, checks };
+    }
+    add('Configuration', true, cfg.url.replace(/^https?:\/\//, ''));
+
+    // 1. Can we reach the auth service at all?
+    try {
+      await request('/auth/v1/settings', { cfg });
+      add('Server reachable', true, 'auth service answered');
+    } catch (err) {
+      add('Server reachable', false, err.message);
+      return { ok: false, checks };
+    }
+
+    // 2. Does the table exist, and is RLS doing its job?
+    try {
+      const rows = await request(`/rest/v1/${cfg.table}?select=user_id&limit=1`, { cfg });
+      if (Array.isArray(rows) && rows.length > 0) {
+        add('Table + security', false,
+          `WARNING: "${cfg.table}" is readable without signing in. Row Level Security is OFF — run the SQL in docs/CLOUD-SAVE.md.`);
+        return { ok: false, checks };
+      }
+      add('Table + security', true, `"${cfg.table}" exists and is protected`);
+    } catch (err) {
+      if (err.status === 404) {
+        add('Table + security', false,
+          `Table "${cfg.table}" does not exist. Run the SQL in docs/CLOUD-SAVE.md.`);
+      } else if (err.status === 401 || err.status === 403) {
+        // Locked down even harder than needed — still a working setup.
+        add('Table + security', true, 'table is protected');
+      } else {
+        add('Table + security', false, err.message);
+      }
+      if (err.status !== 401 && err.status !== 403) return { ok: false, checks };
+    }
+
+    return { ok: checks.every((c) => c.pass), checks };
+  }
+
   /* ------------------------------------------------------------- accounts */
 
   async signUp(email, password) {

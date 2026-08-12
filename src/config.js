@@ -19,9 +19,14 @@
 
 export const CLOUD = {
   /** e.g. 'https://abcdefghijklm.supabase.co' */
-  url: '',
-  /** The project's public anon key. */
-  anonKey: '',
+  url: 'https://kzlsyxxgepguwrnyyyvx.supabase.co',
+  /**
+   * The project's public anon key (role: "anon"). Publishable by design — it
+   * identifies the project and nothing more. The Row Level Security policies
+   * in docs/CLOUD-SAVE.md are what actually protect player saves, so this key
+   * is only safe once that SQL has been run.
+   */
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6bHN5eHhnZXBndXdybnl5eXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjQxOTcsImV4cCI6MjEwMjEwMDE5N30.HP8HscXfAS4UJDqdA7ir9gNb43OVCBLqYHo4C1wNBUM',
   /** Table holding one row per player. See docs/CLOUD-SAVE.md. */
   table: 'saves'
 };

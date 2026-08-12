@@ -118,8 +118,16 @@ export default class AccountScene extends Phaser.Scene {
       }, { style: 'subtle', fontSize: 14, depth: 3 });
     this.group.add(this.switchBtn);
 
-    this.msg = this.add.text(W / 2, 478, '', textStyle(14, '#ff8a9b')).setOrigin(0.5, 0);
+    this.msg = this.add.text(W / 2, 478, '', textStyle(14, '#ff8a9b', {
+      align: 'center', wordWrap: { width: 620 }, lineSpacing: 3
+    })).setOrigin(0.5, 0);
     this.group.add(this.msg);
+
+    // Verifying the backend is set up correctly needs no account, and is the
+    // fastest way to tell "I typed my password wrong" from "the SQL was never
+    // run" — so it sits right here rather than in a console somewhere.
+    this.group.add(button(this, W - 150, 42, 220, 44, 'TEST CONNECTION',
+      () => this._testConnection(), { style: 'subtle', fontSize: 13, depth: 3 }));
 
     this.add.text(W / 2, VIEW.HEIGHT - 54,
       'Progress stays on this device too — an account just keeps a copy you can pick up elsewhere.',
@@ -327,6 +335,15 @@ export default class AccountScene extends Phaser.Scene {
 
     this.msg = this.add.text(W / 2, 500, '', textStyle(14, '#ff8a9b')).setOrigin(0.5, 0);
     this.group.add(this.msg);
+  }
+
+  async _testConnection() {
+    this._say('Checking…', PALETTE.textDim);
+    const { ok, checks } = await this.cloud.checkSetup();
+    const lines = checks.map((c) => `${c.pass ? '✔' : '✘'} ${c.name}: ${c.detail}`);
+    this._say(lines.join('\n'), ok ? '#6bff9c' : '#ff8a9b');
+    this.audio.play(ok ? 'unlock' : 'error');
+    if (ok) this.toaster.show('Cloud saves are set up correctly.', { colour: '#6bff9c' });
   }
 
   async _push() {
