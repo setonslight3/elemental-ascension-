@@ -8,7 +8,7 @@
 
 import { ctx } from '../core/Context.js';
 import { VIEW } from '../data/Balance.js';
-import { PALETTE, textStyle, button, panel, scrollList, hex } from '../ui/UI.js';
+import { PALETTE, textStyle, button, panel, scrollList, hex, backLabel } from '../ui/UI.js';
 import { ARCHETYPES, BOSSES } from '../data/Enemies.js';
 import { ABILITIES, STYLE, PLAYER } from '../data/Balance.js';
 
@@ -31,7 +31,7 @@ export default class CodexScene extends Phaser.Scene {
     bg.fillGradientStyle(0x0e0913, 0x0e0913, 0x1a1020, 0x140c1a, 1);
     bg.fillRect(0, 0, W, H);
 
-    this.add.existing(button(this, 84, 42, 120, 44, '< BACK', () => this._back(),
+    this.add.existing(button(this, 84, 42, 120, 44, backLabel(this.from), () => this._back(),
       { style: 'subtle', fontSize: 16 }));
     this.add.text(W / 2, 26, 'CODEX', textStyle(28, '#ffd166')).setOrigin(0.5, 0);
 

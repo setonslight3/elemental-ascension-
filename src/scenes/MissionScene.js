@@ -9,7 +9,7 @@
 
 import { ctx } from '../core/Context.js';
 import { VIEW } from '../data/Balance.js';
-import { PALETTE, textStyle, button, panel, scrollList, fmt, fmtTime, hex } from '../ui/UI.js';
+import { PALETTE, textStyle, button, panel, scrollList, fmt, fmtTime, hex, backLabel } from '../ui/UI.js';
 import { STAGES, ACTS, BIOMES, MODIFIERS, getStage } from '../data/Stages.js';
 import { ARCHETYPES, BOSSES } from '../data/Enemies.js';
 import { REWARDS, STYLE } from '../data/Balance.js';
@@ -24,6 +24,8 @@ const OBJECTIVE_TEXT = {
 
 export default class MissionScene extends Phaser.Scene {
   constructor() { super('MissionScene'); }
+
+  init(data) { this.from = data?.from || 'HubScene'; }
 
   create() {
     this.profile = ctx.profile;
@@ -40,7 +42,7 @@ export default class MissionScene extends Phaser.Scene {
 
     /* ------------------------------------------------------------- header */
 
-    this.add.existing(button(this, 84, 44, 120, 44, '< HUB',
+    this.add.existing(button(this, 84, 44, 120, 44, backLabel(this.from),
       () => this._back(), { style: 'subtle', fontSize: 16 }));
 
     this.add.text(W / 2, 44, 'SELECT MISSION', textStyle(28, '#ffd166')).setOrigin(0.5);
@@ -293,7 +295,7 @@ export default class MissionScene extends Phaser.Scene {
 
   _back() {
     this.cameras.main.fadeOut(200, 8, 4, 12);
-    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('HubScene'));
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(this.from));
   }
 
   update(time, delta) {

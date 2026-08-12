@@ -8,7 +8,7 @@
 
 import { ctx } from '../core/Context.js';
 import { VIEW } from '../data/Balance.js';
-import { PALETTE, textStyle, button, panel, fmt, hex, onTap, setTapArea } from '../ui/UI.js';
+import { PALETTE, textStyle, button, panel, fmt, hex, onTap, setTapArea, backLabel } from '../ui/UI.js';
 import { BRANCHES, SKILLS_BY_BRANCH, tierRequirement, SKILL_BY_ID } from '../data/Skills.js';
 import { formatStat } from '../systems/Stats.js';
 import { STAT_LABEL } from '../data/Items.js';
@@ -32,7 +32,7 @@ export default class SkillTreeScene extends Phaser.Scene {
 
     /* ------------------------------------------------------------- header */
 
-    this.add.existing(button(this, 84, 42, 120, 44, '< HUB', () => this._back(),
+    this.add.existing(button(this, 84, 42, 120, 44, backLabel(this.from), () => this._back(),
       { style: 'subtle', fontSize: 16 }));
     this.add.text(W / 2, 26, 'SKILL TREE', textStyle(28, '#ffd166')).setOrigin(0.5, 0);
 

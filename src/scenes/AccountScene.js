@@ -9,7 +9,7 @@
 
 import { ctx } from '../core/Context.js';
 import { VIEW } from '../data/Balance.js';
-import { PALETTE, textStyle, button, panel, Toaster, fmtTime } from '../ui/UI.js';
+import { PALETTE, textStyle, button, panel, Toaster, fmtTime, backLabel } from '../ui/UI.js';
 import { cloudConfigured } from '../config.js';
 import { describeSave, progressScore } from '../systems/Cloud.js';
 import { exportProfile, importProfile } from '../systems/Save.js';
@@ -36,7 +36,7 @@ export default class AccountScene extends Phaser.Scene {
     this.mode = 'signin';
     this.domNodes = [];
 
-    this.add.existing(button(this, 84, 42, 120, 44, '< BACK', () => this._back(),
+    this.add.existing(button(this, 84, 42, 120, 44, backLabel(this.from), () => this._back(),
       { style: 'subtle', fontSize: 16 }));
     this.add.text(W / 2, 26, 'ACCOUNT', textStyle(28, '#ffd166')).setOrigin(0.5, 0);
     this.add.text(W / 2, 60, 'Save your progress and continue on any device',

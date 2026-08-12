@@ -8,7 +8,7 @@
 
 import { ctx } from '../core/Context.js';
 import { VIEW } from '../data/Balance.js';
-import { PALETTE, textStyle, button, panel, fmt, Toaster, onTap } from '../ui/UI.js';
+import { PALETTE, textStyle, button, panel, fmt, Toaster, onTap, backLabel } from '../ui/UI.js';
 import { exportProfile, importProfile, persistenceAvailable } from '../systems/Save.js';
 import { fullscreenSupported, isFullscreen, toggleFullscreen } from '../systems/Viewport.js';
 
@@ -38,7 +38,8 @@ export default class SettingsScene extends Phaser.Scene {
 
     this.toaster = new Toaster(this, { y: 88 });
 
-    this.add.existing(button(this, 84, 42, 120, 44, '< BACK', () => this._back(),
+    this.add.existing(button(this, 84, 42, 120, 44,
+      this.overlay ? '< BACK' : backLabel(this.from), () => this._back(),
       { style: 'subtle', fontSize: 16 }));
     this.add.text(W / 2, 26, 'SETTINGS', textStyle(28, '#ffd166')).setOrigin(0.5, 0);
 

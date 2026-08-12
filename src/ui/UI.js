@@ -545,3 +545,18 @@ export const fmtTime = (ms) => {
 
 /** Convert a 0xRRGGBB int to a CSS string. */
 export const hex = (colour) => `#${colour.toString(16).padStart(6, '0')}`;
+
+/**
+ * Label for a back button, derived from where it actually goes.
+ *
+ * The station screens navigate to `this.from`, which the caller supplies, but
+ * their labels used to be hard-coded ("< HUB"). Those agreed only because every
+ * caller happened to be the Hub — the first screen opened from anywhere else
+ * would have shown a button naming a destination it does not go to. Deriving
+ * the text from the destination keeps the two from drifting apart.
+ */
+export const backLabel = (from) => (
+  from === 'HubScene' ? '< HUB'
+    : from === 'MenuScene' ? '< MENU'
+      : '< BACK'
+);

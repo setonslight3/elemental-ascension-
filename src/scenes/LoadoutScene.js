@@ -8,7 +8,7 @@
 
 import { ctx } from '../core/Context.js';
 import { VIEW, RARITY } from '../data/Balance.js';
-import { PALETTE, textStyle, button, panel, scrollList, fmt, hex, Toaster, onTap, setTapArea } from '../ui/UI.js';
+import { PALETTE, textStyle, button, panel, scrollList, fmt, hex, Toaster, onTap, setTapArea, backLabel } from '../ui/UI.js';
 import { SLOTS, BASES, AFFIX_BY_ID, STAT_LABEL, LOWER_IS_BETTER, UNIQUES } from '../data/Items.js';
 import { itemStats, itemScore, formatStat } from '../systems/Stats.js';
 
@@ -37,7 +37,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
     /* ------------------------------------------------------------- header */
 
-    this.add.existing(button(this, 84, 42, 120, 44, '< HUB', () => this._back(),
+    this.add.existing(button(this, 84, 42, 120, 44, backLabel(this.from), () => this._back(),
       { style: 'subtle', fontSize: 16 }));
     this.add.text(W / 2, 26, 'LOADOUT', textStyle(28, '#ffd166')).setOrigin(0.5, 0);
     this.currencyText = this.add.text(W - 30, 32, '', textStyle(15, PALETTE.textDim)).setOrigin(1, 0);

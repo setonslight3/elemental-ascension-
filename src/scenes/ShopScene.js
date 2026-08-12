@@ -9,7 +9,7 @@
 
 import { ctx } from '../core/Context.js';
 import { VIEW, SHOP, RARITY } from '../data/Balance.js';
-import { PALETTE, textStyle, button, panel, fmt, hex, Toaster } from '../ui/UI.js';
+import { PALETTE, textStyle, button, panel, fmt, hex, Toaster, backLabel } from '../ui/UI.js';
 import { generateItem } from '../systems/Loot.js';
 import { SLOTS, BASES, AFFIX_BY_ID } from '../data/Items.js';
 import { itemScore, formatStat } from '../systems/Stats.js';
@@ -40,7 +40,7 @@ export default class ShopScene extends Phaser.Scene {
 
     /* ------------------------------------------------------------- header */
 
-    this.add.existing(button(this, 84, 42, 120, 44, '< HUB', () => this._back(),
+    this.add.existing(button(this, 84, 42, 120, 44, backLabel(this.from), () => this._back(),
       { style: 'subtle', fontSize: 16 }));
     this.add.text(W / 2, 26, 'THE FORGE', textStyle(28, '#ffd166')).setOrigin(0.5, 0);
     this.currencyText = this.add.text(W - 30, 32, '', textStyle(16, PALETTE.textDim)).setOrigin(1, 0);
