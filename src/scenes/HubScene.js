@@ -101,6 +101,8 @@ export default class HubScene extends Phaser.Scene {
     this.add.image(W / 2, 380, 'soft').setDisplaySize(160, 160)
       .setTint(0xff7a2f).setAlpha(0.18).setBlendMode(Phaser.BlendModes.ADD).setDepth(-26);
 
+    this._announceAuthRedirect();
+
     if (wasHurt) {
       this.time.delayedCall(400, () => {
         this.toaster.show('Wounds mended — health restored to full', { colour: '#6bff9c' });
@@ -208,6 +210,29 @@ export default class HubScene extends Phaser.Scene {
       this.add.text(x + 44, 74, c.label, textStyle(11, PALETTE.textFaint)).setDepth(2);
       x += 138;
     }
+  }
+
+  /**
+   * Report the result of an email-confirmation link, once. Landing back in the
+   * game with no acknowledgement leaves the player unsure whether it worked.
+   */
+  _announceAuthRedirect() {
+    const notice = ctx.cloud?.redirectNotice;
+    if (!notice) return;
+    ctx.cloud.redirectNotice = null;
+
+    this.time.delayedCall(600, () => {
+      if (notice.error) {
+        this.toaster.show(`Email link problem: ${notice.error}`, { colour: '#ff8a9b', duration: 6000 });
+      } else {
+        this.toaster.show('Email confirmed — you are signed in.', { colour: '#6bff9c', duration: 5000 });
+        this.audio.play('unlock');
+        // Now that there is an account, get this device's progress into it.
+        ctx.cloud.reconcile().catch((err) => {
+          this.toaster.show(err.message, { colour: '#ffb43d', duration: 5000 });
+        });
+      }
+    });
   }
 
   /** Sub-label for the account card: signed in, available, or local-only. */

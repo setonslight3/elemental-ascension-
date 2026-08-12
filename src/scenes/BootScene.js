@@ -61,6 +61,11 @@ export default class BootScene extends Phaser.Scene {
     }
     ctx.audio = new AudioManager(ctx.profile);
     ctx.cloud = new CloudSaves(ctx.profile);
+    // If the player arrived by tapping "Confirm email address", the session is
+    // sitting in the URL fragment. Take it before anything else runs.
+    try { ctx.cloud.consumeAuthRedirect(); } catch (err) {
+      console.warn('[boot] could not read auth redirect', err);
+    }
     ctx.ready = true;
 
     this.profile = ctx.profile;

@@ -233,8 +233,79 @@ export class CloudSaves {
 
   /* ------------------------------------------------------------- accounts */
 
+  /** Where a confirmation email should send the player back to. */
+  get returnUrl() {
+    try {
+      return `${window.location.origin}${window.location.pathname}`;
+    } catch {
+      return '';
+    }
+  }
+
   async signUp(email, password) {
-    return this._auth('/auth/v1/signup', { email, password }, 'creating account');
+    // Tell Supabase where to send the confirmation link. Without this it falls
+    // back to the project's Site URL, which defaults to http://localhost:3000
+    // — so a player tapping "Confirm email address" on their phone lands on a
+    // dead page instead of back in the game.
+    const back = encodeURIComponent(this.returnUrl);
+    return this._auth(`/auth/v1/signup?redirect_to=${back}`, { email, password }, 'creating account');
+  }
+
+  /**
+   * Pick up a session handed back by a confirmation link.
+   *
+   * Supabase redirects to `<return url>#access_token=…&refresh_token=…`, so
+   * when the player taps the link in their inbox the game boots with the
+   * session sitting in the URL fragment. Adopting it here means confirming
+   * your email signs you straight in, rather than dumping you at a title
+   * screen that still thinks you are a stranger.
+   *
+   * @returns {{confirmed?:boolean, error?:string}|null}
+   */
+  consumeAuthRedirect() {
+    let hash = '';
+    try { hash = (window.location.hash || '').replace(/^#/, ''); } catch { return null; }
+    if (!hash) return null;
+
+    const params = new URLSearchParams(hash);
+    const token = params.get('access_token');
+    const errorText = params.get('error_description') || params.get('error');
+    if (!token && !errorText) return null;
+
+    // Clear the fragment so a refresh cannot replay a stale or spent token.
+    try {
+      window.history.replaceState(null, '',
+        window.location.pathname + window.location.search);
+    } catch { /* history blocked; harmless */ }
+
+    if (!token) {
+      const message = decodeURIComponent(String(errorText).replace(/\+/g, ' '));
+      this.redirectNotice = { error: message };
+      return this.redirectNotice;
+    }
+
+    this.session = {
+      accessToken: token,
+      refreshToken: params.get('refresh_token') || '',
+      expiresAt: Date.now() + (Number(params.get('expires_in')) || 3600) * 1000,
+      // The fragment carries no identity; _ensureToken fills these in.
+      userId: null,
+      email: null
+    };
+    storeSession(this.session);
+    this._setStatus('signed-in');
+    this.redirectNotice = { confirmed: true };
+    return this.redirectNotice;
+  }
+
+  /** Fetch the signed-in user's id and email, which saves are keyed on. */
+  async _hydrateUser() {
+    const data = await request('/auth/v1/user', { token: this.session.accessToken });
+    this.session.userId = data?.id ?? null;
+    this.session.email = data?.email ?? null;
+    storeSession(this.session);
+    this._emit();
+    return this.session;
   }
 
   async signIn(email, password) {
@@ -273,14 +344,26 @@ export class CloudSaves {
   /** Refresh an expired access token; sign out if the refresh itself fails. */
   async _ensureToken() {
     if (!this.session) throw new CloudError('Not signed in.', 'auth');
+
+    // A session adopted from a confirmation link arrives without an identity.
+    if (this.session.accessToken && !this.session.userId &&
+        Date.now() < this.session.expiresAt) {
+      await this._hydrateUser();
+    }
+
     if (Date.now() < this.session.expiresAt - 60000) return this.session.accessToken;
 
     try {
       const data = await request('/auth/v1/token?grant_type=refresh_token', {
         method: 'POST', body: { refresh_token: this.session.refreshToken }
       });
-      this.session = { ...sessionFrom(data), email: this.session.email };
+      this.session = {
+        ...sessionFrom(data),
+        email: this.session.email ?? sessionFrom(data).email,
+        userId: this.session.userId ?? sessionFrom(data).userId
+      };
       storeSession(this.session);
+      if (!this.session.userId) await this._hydrateUser();
       return this.session.accessToken;
     } catch (err) {
       this.signOut();

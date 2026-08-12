@@ -15,9 +15,10 @@ It takes about five minutes.
 >
 > 1. **Step 2** — run the SQL.
 > 2. **Step 3** — turn off *Confirm email*.
+> 3. **Step 3b** — set the **Site URL** away from `localhost:3000`.
 >
-> Then open the game → **ACCOUNT** → **TEST CONNECTION**. It reports both, so
-> you can confirm each one took effect without leaving the game.
+> Then open the game → **ACCOUNT** → **TEST CONNECTION**. It reports the first
+> two, so you can confirm they took effect without leaving the game.
 
 ## 1. Create a Supabase project
 
@@ -94,7 +95,30 @@ can check the toggle actually saved.
   Supabase's low default email limits will bite.
 
 The game handles both: with confirmation on, sign-up shows "Confirm your email,
-then sign in" rather than failing silently.
+then sign in" rather than failing silently, and tapping the link in the email
+returns straight into the game already signed in.
+
+## 3b. Set the Site URL
+
+**Authentication → URL Configuration → Site URL.** A new project defaults to
+`http://localhost:3000`, which is a dead address on a phone — that is where a
+confirmation link sends the player if nothing else is set.
+
+Set it to where the game is actually deployed:
+
+```
+https://elemental-ascension.vercel.app
+```
+
+and add the same value under **Redirect URLs** (plus `http://localhost:8080`
+if you test locally).
+
+The game also sends its own `redirect_to` on sign-up, so links come back to
+whichever host the player used — but Supabase only honours a `redirect_to` that
+appears in the allow list, so the Site URL still has to be right.
+
+This matters even with confirmation switched off: it is also where password
+resets and any future email flows will land.
 
 ## 4. Point the game at the project
 
@@ -150,6 +174,8 @@ localStorage.setItem('ea:cloud', JSON.stringify({
 | Sign-in works but saving fails with 401/403 | RLS is on but the policies in step 2 were not created. |
 | "Confirm your email, then sign in." | Email confirmation is enabled — expected; check the inbox. |
 | Nothing happens, console shows a CORS error | The `url` is wrong or has a trailing path. It should be the bare project URL. |
+| Confirmation link opens `localhost:3000` | Site URL is still the default. See step 3b. |
+| "Email link is invalid or has expired" | The link was already used, or it timed out. Sign in normally instead. |
 
 ## Privacy
 
