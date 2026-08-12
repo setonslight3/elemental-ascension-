@@ -12,11 +12,49 @@
 
 import { makeRng, hashSeed, rnd } from '../utils/Rand.js';
 import { BIOMES } from '../data/Stages.js';
-import { VIEW } from '../data/Balance.js';
+import { VIEW, PLAYER, PHYSICS } from '../data/Balance.js';
 
 const GROUND_BASE = 588;
 const WORLD_HEIGHT = 760;
 const CEILING_Y = 96;
+
+/**
+ * REACH — what the player can physically do, derived from the movement
+ * constants rather than guessed.
+ *
+ * Every generated feature is constrained by these, because a level that can
+ * generate a ledge you cannot climb, a platform you cannot reach, or a lava
+ * gap you cannot clear is not "challenging" — it is broken, and the player
+ * pays for it in health or in a dead end.
+ *
+ * All of it assumes NO skill-tree upgrades and NO stage modifiers: the double
+ * jump and low gravity must always be a bonus, never a requirement.
+ */
+export const REACH = (() => {
+  const g = PHYSICS.GRAVITY;
+  const v = Math.abs(PLAYER.JUMP_VELOCITY);
+  const apex = (v * v) / (2 * g);           // ~137px straight up
+  const airtime = (2 * v) / g;              // ~0.72s hang time on level ground
+  const walkReach = PLAYER.WALK_SPEED * airtime;    // ~170px jumped at a walk
+  const sprintReach = PLAYER.SPRINT_SPEED * airtime; // ~286px at a sprint
+
+  return {
+    apex,
+    airtime,
+    walkReach,
+    sprintReach,
+    /** Ground may rise by this much between segments and stay walkable-up. */
+    maxStepUp: Math.floor(apex * 0.60),
+    /** …and fall by this much and still be climbable back out. */
+    maxStepDown: Math.floor(apex * 0.72),
+    /** Widest hole, clearable from a standing walk with margin to spare. */
+    maxGap: Math.floor(walkReach * 0.85),
+    /** Highest a platform may sit above the surface beneath it. */
+    maxRise: Math.floor(apex * 0.78),
+    /** Headroom needed under a ceiling to jump at all. */
+    headroom: 74
+  };
+})();
 
 export function buildWorld(scene, stage) {
   const biome = BIOMES[stage.biome] || BIOMES.foundry;
@@ -121,9 +159,10 @@ export function buildWorld(scene, stage) {
     x = segEnd;
     if (x >= width) break;
 
-    // Gap?
+    // Gap? Never wider than a standing jump clears — the player should lose
+    // health to lava for misjudging a jump, never for the level being unfair.
     if (!arena && rng.chance(layout.gaps)) {
-      const gapLen = rng.range(110, 210);
+      const gapLen = rng.range(90, REACH.maxGap);
       const gapEnd = Math.min(width, x + gapLen);
       if (biome.hazard === 'lava' && layout.hazardDensity > 0) {
         world.hazards.push({ type: 'lava', x1: x, x2: gapEnd, y: y + 60 });
@@ -133,20 +172,44 @@ export function buildWorld(scene, stage) {
       x = gapEnd;
     }
 
-    // Step the ground for silhouette variety. Upward steps are capped below
-    // the player's jump height (~137px) so terrain is never a wall you have to
-    // find a way around; downward steps can be bigger, since falling is free.
-    y = Phaser.Math.Clamp(y + rng.range(-84, 130), 430, 640);
+    // Step the ground for silhouette variety, within what the player can climb
+    // in BOTH directions. Falling somewhere you cannot climb back out of is
+    // the worst kind of level bug: it looks like exploration and ends in a
+    // dead end, so downward steps are capped just as tightly as upward ones.
+    y = Phaser.Math.Clamp(y + rng.range(-REACH.maxStepUp, REACH.maxStepDown), 430, 640);
   }
 
   /* ------------------------------------------------------------ platforms */
 
+  /**
+   * Platforms are built in *reachable chains*: each one sits at most one jump
+   * above whatever is already beneath it, so a stack of three is climbed one
+   * hop at a time. Previously they were scattered up to 300px up — well past
+   * the 137px jump — which left decorative slabs the player could see, needed
+   * (to cross lava), and could not possibly reach.
+   */
   const platformCount = Math.round((width / 320) * (layout.platforms ?? 0.5) * 2.2);
+  const ceilingLimit = layout.ceiling ? CEILING_Y + REACH.headroom : CEILING_Y + 40;
+
+  /** Highest reachable surface under `x`, counting platforms already placed. */
+  const surfaceUnder = (x, above) => {
+    let best = groundYAtRaw(world, x);
+    for (const p of world.platforms) {
+      if (x < p.x - p.w / 2 - 30 || x > p.x + p.w / 2 + 30) continue;
+      if (p.y <= above) continue;          // must be below the target height
+      if (p.y < best) best = p.y;          // smaller y == higher up
+    }
+    return best;
+  };
+
   for (let i = 0; i < platformCount; i++) {
     const px = rng.range(240, width - 160);
-    const groundY = groundYAtRaw(world, px);
-    const py = groundY - rng.range(110, 300);
-    if (py < CEILING_Y + 60) continue;
+    // Step up from the surface below rather than from the ground, so chains
+    // can climb while every individual hop stays within one jump.
+    const below = surfaceUnder(px, -Infinity);
+    const rise = rng.range(70, REACH.maxRise);
+    const py = below - rise;
+    if (py < ceilingLimit) continue;
     const pw = rng.range(110, 250);
 
     const plat = scene.add.tileSprite(px, py, pw, 22, 'platform')
@@ -218,7 +281,7 @@ export function buildWorld(scene, stage) {
 
   world.groundYAt = (px) => groundYAtRaw(world, px);
 
-  world.update = (dt, time, player) => {
+  world.update = (dt, time, player, enemies = []) => {
     for (const saw of world.saws) {
       saw.t += dt * saw.speed;
       const k = (Math.sin(saw.t) + 1) / 2;
@@ -237,13 +300,29 @@ export function buildWorld(scene, stage) {
       if (hz.type !== 'lava' || !hz.sprite) continue;
       hz.sprite.tilePositionX += dt * 30;
       hz.sprite.setAlpha(0.8 + Math.sin(time * 2 + hz.x1) * 0.12);
-      if (player && player.alive &&
-          player.centre.x > hz.x1 && player.centre.x < hz.x2 &&
-          player.feetY > hz.damageTop) {
+
+      const inPool = (x, feet) => x > hz.x1 && x < hz.x2 && feet > hz.damageTop;
+
+      if (player && player.alive && inPool(player.centre.x, player.feetY)) {
         player.takeDamage(10 + stage.index * 1.4, {
           unblockable: true, dir: 0, knockback: 0, launch: -520
         });
         player.sprite.body.setVelocityY(-620);
+      }
+
+      /**
+       * Lava burns robots too. It used to only hurt the player, so a robot
+       * that walked into a pool sat in it forever — alive, unreachable, and
+       * counted as a live hostile, which left the wave permanently
+       * incomplete and the stage impossible to finish.
+       */
+      for (const e of enemies) {
+        if (!e.alive || e.isCore || e.isBoss || e.def.flying) continue;
+        if (!inPool(e.x, e.feetY)) continue;
+        e.takeDamage(Math.max(18, e.maxHp * 0.34), {
+          dir: 0, knockback: 0, source: null, lava: true
+        });
+        if (e.alive && e.sprite.body?.moves) e.sprite.body.setVelocityY(-420);
       }
     }
 
@@ -266,6 +345,62 @@ export function buildWorld(scene, stage) {
   };
 
   return world;
+}
+
+/**
+ * Check that a generated world is actually traversable, using the same REACH
+ * numbers the generator is constrained by.
+ *
+ * The generator should make this impossible to fail; it exists so a change to
+ * a movement constant or a layout parameter can never silently produce a level
+ * with a ledge you cannot climb or a pit you cannot cross. `terrain.mjs` runs
+ * it over all twenty stages.
+ *
+ * @returns {string[]} human-readable problems, empty when the level is sound
+ */
+export function validateReachability(world) {
+  const problems = [];
+  const segs = world.segments;
+
+  for (let i = 0; i < segs.length - 1; i++) {
+    const a = segs[i];
+    const b = segs[i + 1];
+    const gap = b.x1 - a.x2;
+
+    if (gap > REACH.maxGap) {
+      problems.push(`gap of ${Math.round(gap)}px at x=${Math.round(a.x2)} exceeds the ${REACH.maxGap}px jump`);
+    }
+    const rise = a.y - b.y;          // positive == the next segment is higher
+    if (rise > REACH.maxStepUp) {
+      problems.push(`step up of ${Math.round(rise)}px at x=${Math.round(a.x2)} exceeds ${REACH.maxStepUp}px`);
+    }
+    if (-rise > REACH.maxStepDown) {
+      problems.push(`drop of ${Math.round(-rise)}px at x=${Math.round(a.x2)} cannot be climbed back (max ${REACH.maxStepDown}px)`);
+    }
+  }
+
+  for (const p of world.platforms) {
+    // Something must be within one jump beneath the platform's span.
+    let support = groundYAtRaw(world, p.x);
+    for (const q of world.platforms) {
+      if (q === p || q.y <= p.y) continue;
+      if (p.x < q.x - q.w / 2 - 30 || p.x > q.x + q.w / 2 + 30) continue;
+      if (q.y < support) support = q.y;
+    }
+    const rise = support - p.y;
+    if (rise > REACH.maxRise + 1) {
+      problems.push(`platform at x=${Math.round(p.x)} sits ${Math.round(rise)}px above anything below it (max ${REACH.maxRise}px)`);
+    }
+  }
+
+  for (const hz of world.hazards) {
+    const span = hz.x2 - hz.x1;
+    if (span > REACH.maxGap) {
+      problems.push(`${hz.type} pool at x=${Math.round(hz.x1)} is ${Math.round(span)}px wide, wider than a jump`);
+    }
+  }
+
+  return problems;
 }
 
 /** Ground height under a world x; over a gap, the nearest segment's height. */

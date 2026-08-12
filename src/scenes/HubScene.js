@@ -14,6 +14,7 @@ import { PALETTE, textStyle, button, panel, bar, fmt, Toaster, onTap, setTapArea
 import { createRig, poseHumanoid } from '../entities/Rig.js';
 import { STAGES } from '../data/Stages.js';
 import { itemScore } from '../systems/Stats.js';
+import { cloudConfigured } from '../config.js';
 
 const FLAVOUR = [
   'The forge is quiet. It will not stay that way.',
@@ -136,19 +137,23 @@ export default class HubScene extends Phaser.Scene {
       { key: 'forge', label: 'FORGE', desc: 'Potions & upgrades', icon: 'gl_potion', style: 'ghost',
         action: () => this._go('ShopScene') },
       { key: 'codex', label: 'CODEX', desc: 'How to play', icon: 'gl_fireball', style: 'ghost',
-        action: () => this._go('CodexScene') }
+        action: () => this._go('CodexScene') },
+      { key: 'account', label: 'ACCOUNT', desc: this._accountDesc(), icon: 'gl_ultimate', style: 'ghost',
+        action: () => this._go('AccountScene') }
     ];
 
-    const cardW = 214;
+    const gapX = 14;
     const cardH = 116;
-    const totalW = stations.length * cardW + (stations.length - 1) * 16;
+    // Fit however many stations there are inside the available width.
+    const cardW = Math.min(206, Math.floor((VIEW.WIDTH - 60 - (stations.length - 1) * gapX) / stations.length));
+    const totalW = stations.length * cardW + (stations.length - 1) * gapX;
     let sx = (W - totalW) / 2 + cardW / 2;
 
     this.badges = [];
     for (const st of stations) {
       const c = this._station(sx, H - 96, cardW, cardH, st);
       this.add.existing(c);
-      sx += cardW + 16;
+      sx += cardW + gapX;
     }
 
     /* ------------------------------------------------------------- footer */
@@ -203,6 +208,12 @@ export default class HubScene extends Phaser.Scene {
       this.add.text(x + 44, 74, c.label, textStyle(11, PALETTE.textFaint)).setDepth(2);
       x += 138;
     }
+  }
+
+  /** Sub-label for the account card: signed in, available, or local-only. */
+  _accountDesc() {
+    if (!cloudConfigured()) return 'Local save only';
+    return ctx.cloud?.signedIn ? 'Synced' : 'Save to cloud';
   }
 
   _upgradeCount() {

@@ -127,6 +127,11 @@ hand-authored uniques, plus a Forge that turns currency into gear.
 **Saving.** Versioned, checksummed, double-buffered `localStorage` with migration,
 a memory fallback for private browsing, and copy/paste save codes.
 
+**Accounts (optional).** Email sign-in with automatic cross-device sync, so you
+can start on a phone and continue on a laptop. Off by default and entirely
+optional — see [docs/CLOUD-SAVE.md](docs/CLOUD-SAVE.md) for the five-minute
+Supabase setup. Without it the game saves locally exactly as before.
+
 ---
 
 ## Project layout

@@ -466,6 +466,7 @@ export default class PlayScene extends Phaser.Scene {
 
   onEnemyKilled(enemy) {
     this.killCount++;
+    this.noteProgress();
     this.player.onKill();
     this.profile.addMetrics({ kills: 1 });
     this.style.add(enemy.isBoss ? 60 : enemy.elite ? 18 : 9, `kill:${enemy.archetypeId}`);
@@ -587,7 +588,8 @@ export default class PlayScene extends Phaser.Scene {
     }
 
     this._separateEnemies();
-    this.world.update(dt, time / 1000, this.player);
+    this._policeEnemies(dt);
+    this.world.update(dt, time / 1000, this.player, this.enemies);
     this._updateAmbient(dt, time / 1000);
     this._updateDirector(dt);
     this._checkBounds();
@@ -642,6 +644,102 @@ export default class PlayScene extends Phaser.Scene {
       }
     }
   }
+
+  /**
+   * The anti-softlock net.
+   *
+   * A wave only ends when every robot is dead, so any robot that becomes
+   * permanently unreachable freezes the stage. Three ways that happened:
+   * falling out of the world, wedging in terrain it could not climb, and
+   * wandering far off-screen and never coming back. All three now resolve
+   * themselves within seconds.
+   */
+  _policeEnemies(dt) {
+    if (!this.player) return;
+    const px = this.player.centre.x;
+
+    for (const e of this.enemies) {
+      if (!e.alive || e.isCore) continue;
+
+      // 1. Fell out of the world — it is gone, so make that official rather
+      //    than leaving a live enemy the player can never reach.
+      if (e.sprite.y > WORLD_HEIGHT + 120) {
+        if (e.isBoss) {
+          // A boss must never be lost this way; put it back on solid ground.
+          const safe = this.world.segments[Math.floor(this.world.segments.length / 2)];
+          e.sprite.setPosition((safe.x1 + safe.x2) / 2, safe.y - 140);
+          e.sprite.body.setVelocity(0, 0);
+        } else {
+          e.takeDamage(e.maxHp * 10, { dir: 0, knockback: 0 });
+        }
+        continue;
+      }
+
+      if (e.isBoss) continue;
+
+      const dist = Math.abs(e.x - px);
+
+      // 2. Chasing but going nowhere — wedged against geometry. Turrets are
+      //    meant to stand still, so only mobile units can be "stuck".
+      if (!e.def.stationary) {
+        const moving = Math.abs(e.sprite.body.velocity.x) > 12;
+        const engaged = e.state === 'chase' || e.state === 'idle';
+        if (engaged && !moving && dist > 160) e.stuckTimer = (e.stuckTimer || 0) + dt;
+        else e.stuckTimer = 0;
+      }
+
+      // 3. Drifted (or was placed) far away and stopped mattering. This
+      //    applies to turrets too: a Sentinel that spawned across the level is
+      //    exactly as blocking as one that walked there.
+      if (dist > 1500) e.strandedTimer = (e.strandedTimer || 0) + dt;
+      else e.strandedTimer = 0;
+
+      if (e.stuckTimer > 3.5 || e.strandedTimer > 6) this._recallEnemy(e);
+    }
+
+    // 4. Last resort: nothing has died for a long time and the wave still has
+    //    hostiles. Something is wrong that the checks above did not catch, so
+    //    bring everything to the player rather than stranding the run.
+    const alive = this.enemies.filter((x) => x.alive && !x.isCore && !x.isBoss);
+    if (alive.length > 0 && !this.objective.done) {
+      this._stallTimer = (this._stallTimer || 0) + dt;
+      if (this._stallTimer > 22) {
+        this._stallTimer = 0;
+        for (const e of alive) this._recallEnemy(e);
+        this.fx.callout('REINFORCEMENTS REROUTED', {
+          colour: '#ffb43d', y: 250, scale: 0.6, duration: 1200
+        });
+      }
+    } else {
+      this._stallTimer = 0;
+    }
+  }
+
+  /** Teleport a robot back into the fight, with a visible arrival. */
+  _recallEnemy(enemy) {
+    const point = this._pickSpawnPoint();
+    this.fx.burst(enemy.x, enemy.y, {
+      count: 8, texture: 'spark', tint: enemy.def.accent,
+      speed: [60, 200], life: [0.2, 0.4], scale: [0.6, 0]
+    });
+    // body.reset moves the physics body as well as the sprite, which matters
+    // for turrets whose bodies do not follow the game object on their own.
+    enemy.sprite.body.reset(point.x, point.y);
+    enemy.sprite.setPosition(point.x, point.y);
+    enemy.homeX = point.x;
+    enemy.homeY = point.y;
+    enemy.hoverY = point.y;
+    enemy.stuckTimer = 0;
+    enemy.strandedTimer = 0;
+    enemy.hunting = true;
+    this.fx.burst(point.x, point.y, {
+      count: 10, texture: 'spark', tint: enemy.def.accent,
+      speed: [80, 240], life: [0.2, 0.5], scale: [0.7, 0]
+    });
+  }
+
+  /** Reset the stall timer whenever the fight is visibly progressing. */
+  noteProgress() { this._stallTimer = 0; }
 
   /** Keep the player inside the world; falling off is survivable, not fatal. */
   _checkBounds() {
@@ -871,6 +969,10 @@ export default class PlayScene extends Phaser.Scene {
       parries: this.player.parries,
       replayMult: replay
     };
+
+    // Back up the run to the player's account, if they have one. Fire and
+    // forget: a sync failure must never block the results screen.
+    ctx.cloud?.autoPush();
 
     this.scene.stop('HudScene');
     this.scene.start('ResultsScene');

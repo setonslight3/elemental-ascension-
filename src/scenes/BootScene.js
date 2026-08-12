@@ -10,6 +10,7 @@
 import { generateAll } from '../systems/Art.js';
 import { Profile } from '../systems/Profile.js';
 import { AudioManager } from '../systems/Audio.js';
+import { CloudSaves } from '../systems/Cloud.js';
 import { ctx } from '../core/Context.js';
 import { persistenceAvailable, freshProfile } from '../systems/Save.js';
 import { VIEW } from '../data/Balance.js';
@@ -59,6 +60,7 @@ export default class BootScene extends Phaser.Scene {
       ctx.profile = new Profile(freshProfile());
     }
     ctx.audio = new AudioManager(ctx.profile);
+    ctx.cloud = new CloudSaves(ctx.profile);
     ctx.ready = true;
 
     this.profile = ctx.profile;

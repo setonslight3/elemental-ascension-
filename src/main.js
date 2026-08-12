@@ -25,6 +25,7 @@ import LoadoutScene from './scenes/LoadoutScene.js';
 import ShopScene from './scenes/ShopScene.js';
 import SettingsScene from './scenes/SettingsScene.js';
 import CodexScene from './scenes/CodexScene.js';
+import AccountScene from './scenes/AccountScene.js';
 
 if (!window.Phaser) {
   document.getElementById('boot-splash').innerHTML =
@@ -107,7 +108,7 @@ const config = {
   scene: [
     BootScene, MenuScene, HubScene, MissionScene,
     PlayScene, HudScene, PauseScene, ResultsScene,
-    SkillTreeScene, LoadoutScene, ShopScene, SettingsScene, CodexScene
+    SkillTreeScene, LoadoutScene, ShopScene, SettingsScene, CodexScene, AccountScene
   ]
 };
 

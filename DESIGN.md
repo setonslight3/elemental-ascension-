@@ -341,6 +341,93 @@ entirely, which both reclaims the screen and eliminates the viewport-offset
 class of bug. iPhone Safari refuses element fullscreen outright; there the
 button says so rather than appearing to do nothing.
 
+## 16. Terrain the player could not actually traverse
+
+Reported from play: drops you could not climb back out of, floating slabs
+placed above lava that were too high to reach, and lava gaps too wide to jump.
+
+All three were the same mistake — the generator was picking numbers with no
+knowledge of what the player can physically do. Platforms were scattered up to
+300px above the ground against a **137px** jump.
+
+`REACH` in `systems/Terrain.js` now derives the player's real capabilities from
+the movement constants rather than guessing:
+
+```
+apex        = v² / 2g          ≈ 138px straight up
+airtime     = 2v / g           ≈ 0.72s
+walk reach  = 235 × airtime    ≈ 170px cleared from a standing walk
+```
+
+and every generated feature is constrained by it:
+
+| Feature | Limit | Why |
+|---|---|---|
+| Step up | 82px | comfortably inside a jump |
+| Step **down** | 99px | must be climbable *back*, or it is a dead end |
+| Gap / lava pool | 144px | clearable at walking pace, not just sprinting |
+| Platform rise | 107px | one hop above whatever is beneath it |
+
+Platforms are now built in **reachable chains** — each sits at most one jump
+above the surface below it, so a stack of three is climbed one hop at a time
+instead of floating decoratively out of range.
+
+Crucially the limits assume **no skill-tree upgrades and no stage modifiers**:
+the double jump and low gravity must always be a bonus, never a requirement.
+
+`validateReachability()` re-checks a built world against the same numbers, and
+`terrain.mjs` runs it across all twenty stages. A future change to jump height
+or a layout parameter cannot silently reintroduce an impassable level.
+
+## 17. Waves that could never be completed
+
+Also reported: robots walked into lava and sat there unharmed, or wandered off
+and never returned — and since a wave only ends when every robot is dead, the
+stage became unfinishable with "2 hostiles remaining" that could not be reached.
+
+Three causes, three fixes:
+
+- **Lava only damaged the player.** It burns robots now, and the kill counts
+  properly through the normal death path.
+- **Nothing handled falling out of the world.** Non-boss enemies that drop
+  below the floor now die and count; a boss is placed back on solid ground
+  instead, since losing one would be worse than the bug.
+- **Nothing handled being stuck.** Enemies that chase without moving for 3.5s,
+  or sit more than 1500px away for 6s, are teleported back into the fight.
+  Stationary Sentinels are included: a turret that spawned across the level
+  blocks a wave exactly as effectively as one that walked there.
+
+Behind all of it is a last-resort watchdog: if hostiles remain but nothing has
+died for 22 seconds, everything is recalled to the player. Between the four,
+a wave that cannot be finished should now be impossible rather than merely
+unlikely.
+
+## 18. Accounts and cross-device saves
+
+Requested: sign in on another device and carry on.
+
+`systems/Cloud.js` talks to Supabase's REST API directly rather than pulling in
+the SDK, so the game stays a static site with nothing to bundle. Three rules
+shaped it:
+
+- **Local storage stays authoritative while playing.** The cloud is a sync
+  layer, never a dependency — a failed sign-in, a dropped connection or an
+  unconfigured project all leave a perfectly playable game.
+- **Nothing is overwritten silently.** A fresh device adopts the account's
+  save; an account with no save adopts the device's. But when both sides have
+  real progress and they differ, the game shows what each contains and asks.
+  An automatic merge that quietly costs someone a play session is not a
+  trade worth making.
+- **Configuration is optional.** With no project attached, the Account screen
+  explains that and offers save codes instead.
+
+Tested end to end against a mock Supabase implementing the same endpoints:
+sign-up, cross-device pull, bidirectional sync, conflict detection, bad
+passwords, duplicate signups and an unreachable server.
+
+Setup is documented in `docs/CLOUD-SAVE.md`, including the Row Level Security
+policies that are what make publishing the anon key safe.
+
 ## Deliberate scope boundaries
 
 Water, Earth, Air, PvP, co-op, guilds and raids are listed as Future in the scope

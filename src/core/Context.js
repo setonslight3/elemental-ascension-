@@ -12,6 +12,8 @@ export const ctx = {
   profile: null,
   /** @type {import('../systems/Audio.js').AudioManager|null} */
   audio: null,
+  /** @type {import('../systems/Cloud.js').CloudSaves|null} */
+  cloud: null,
   /** Set once the boot sequence has generated textures. */
   ready: false,
   /** Filled in by PlayScene when a run ends, read by ResultsScene. */
