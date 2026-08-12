@@ -179,10 +179,28 @@ export class CloudSaves {
     }
     add('Configuration', true, cfg.url.replace(/^https?:\/\//, ''));
 
-    // 1. Can we reach the auth service at all?
+    // 1. Can we reach the auth service, and how is it configured? The auth
+    //    settings endpoint is public, so this works before anyone signs in —
+    //    which is exactly when you want to know whether sign-ups are even
+    //    allowed and whether new accounts need an email round trip.
     try {
-      await request('/auth/v1/settings', { cfg });
+      const settings = await request('/auth/v1/settings', { cfg });
       add('Server reachable', true, 'auth service answered');
+
+      if (settings?.disable_signup === true) {
+        add('Sign-ups', false,
+          'DISABLED for this project — nobody can create an account. Enable them in Authentication → Providers → Email.');
+      } else {
+        add('Sign-ups', true, 'enabled');
+      }
+
+      // GoTrue calls it "mailer_autoconfirm": true means confirmation is OFF.
+      if (settings?.mailer_autoconfirm === true) {
+        add('Email confirmation', true, 'OFF — new accounts sign in immediately');
+      } else {
+        add('Email confirmation', true,
+          'ON — new accounts must click a link in their inbox before the first sign-in. Turn it off in Authentication → Providers → Email → "Confirm email".');
+      }
     } catch (err) {
       add('Server reachable', false, err.message);
       return { ok: false, checks };

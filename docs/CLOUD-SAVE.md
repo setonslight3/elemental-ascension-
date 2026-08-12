@@ -11,11 +11,13 @@ It takes about five minutes.
 ---
 
 > **This build is already pointed at a project**
-> (`kzlsyxxgepguwrnyyyvx.supabase.co`), so you only need **step 2** — running
-> the SQL. Steps 1 and 4 are here for anyone setting up a different project.
+> (`kzlsyxxgepguwrnyyyvx.supabase.co`), so only two dashboard steps remain:
 >
-> After running it, open the game → **ACCOUNT** → **TEST CONNECTION** to
-> confirm.
+> 1. **Step 2** — run the SQL.
+> 2. **Step 3** — turn off *Confirm email*.
+>
+> Then open the game → **ACCOUNT** → **TEST CONNECTION**. It reports both, so
+> you can confirm each one took effect without leaving the game.
 
 ## 1. Create a Supabase project
 
@@ -77,7 +79,13 @@ Verify it worked, either way:
 
 ## 3. Decide about email confirmation
 
-**Authentication → Providers → Email** has a *Confirm email* toggle.
+**Authentication → Providers → Email**, scroll to **Confirm email**, switch it
+off, then **Save**. (In newer dashboards the same switch lives under
+**Authentication → Sign In / Providers → Email**.)
+
+With it off, creating an account signs you straight in — no inbox round trip.
+**TEST CONNECTION** in the game reports the current state either way, so you
+can check the toggle actually saved.
 
 - **Off** — players can sign up and play immediately. Simplest, and fine for a
   game where the account only protects a save file.
